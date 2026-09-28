@@ -1,0 +1,9 @@
+node_modules
+dist
+dev-dist
+*.local
+.DS_Store
+*.tsbuildinfo
+
+# Local planning notes
+Master-Prompt*.md
