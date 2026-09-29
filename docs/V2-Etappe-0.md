@@ -46,7 +46,7 @@ Ziel: Das Supabase-Projekt ist so eingerichtet und abgesichert, dass Etappe 1 (S
    *Warum:* Nur du legst Konten an. Niemand kann sich selbst registrieren.
 2. **E-Mail-Bestätigung ausschalten:** „Confirm email“ deaktivieren. Der Provider „Email“ selbst bleibt **aktiv**, er ist der Passwort-Login.
    *Warum:* Wir nutzen Benutzernamen, die intern als Kunstadresse gespeichert werden. Es wird nie eine Mail verschickt, deshalb brauchen wir keinen Mailanbieter.
-3. **Passwort-Mindestlänge** auf **10 Zeichen** setzen. Falls es Anforderungen an Zeichenarten gibt, z. B. Ziffern: optional.
+3. **Passwort-Anforderungen:** Mindestlänge **8 Zeichen**, Zeichenanforderung **„Letters and digits“**.
    *Warum:* Ohne Selbst-Reset per Mail ist ein starkes Passwort der wichtigste Schutz des Kontos.
 4. **URL-Konfiguration:**
    - Site URL: `https://jonashaefele17.github.io/arbeitszeiterfassung-web/`
@@ -108,7 +108,7 @@ Da es keinen Mailanbieter gibt, entfällt ein zweiter Vertrag.
 - [ ] Supabase-Projekt in **Frankfurt**, Datenbank-Passwort im Passwort-Manager
 - [ ] Registrierung **aus**
 - [ ] E-Mail-Bestätigung **aus** (Provider „Email“ bleibt an)
-- [ ] Passwort-Mindestlänge 10
+- [ ] Passwort: mindestens 8 Zeichen, „Letters and digits“
 - [ ] Site URL und Redirect URLs gesetzt
 - [ ] DPA mit Supabase abgelegt
 - [ ] `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` auf GitHub und in `.env.local`

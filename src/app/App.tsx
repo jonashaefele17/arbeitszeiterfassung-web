@@ -1,7 +1,10 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import { useEffect } from 'react';
 import { Toaster } from '../components/ui/Toaster';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { transitions } from '../components/ui/motion';
+import { ForeignDataScreen, LoginScreen, NotConfiguredScreen, SetInitialPasswordScreen } from '../features/auth/AuthScreens';
+import { useAuthStore } from '../features/auth/authStore';
 import { DayEditorSheet } from '../features/day-editor/DayEditorSheet';
 import { MonthView } from '../features/monthly/MonthView';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
@@ -16,11 +19,35 @@ export function App() {
   return (
     <ErrorBoundary>
       <MotionConfig reducedMotion="user">
-        <Root />
+        <AuthGate />
         <Toaster />
       </MotionConfig>
     </ErrorBoundary>
   );
+}
+
+/** Anmeldung vor allem anderen: erst mit gültiger Sitzung werden die lokalen Daten geladen. */
+function AuthGate() {
+  const auth = useAuthStore((s) => s.state);
+  const init = useAuthStore((s) => s.init);
+  useEffect(() => {
+    void init();
+  }, [init]);
+
+  switch (auth.status) {
+    case 'loading':
+      return null;
+    case 'not-configured':
+      return <NotConfiguredScreen />;
+    case 'signed-out':
+      return <LoginScreen />;
+    case 'must-change-password':
+      return <SetInitialPasswordScreen user={auth.user} />;
+    case 'foreign-data':
+      return <ForeignDataScreen user={auth.user} />;
+    case 'signed-in':
+      return <Root />;
+  }
 }
 
 function Root() {

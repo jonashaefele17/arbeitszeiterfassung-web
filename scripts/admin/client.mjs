@@ -33,19 +33,18 @@ export function appClient() {
   return createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-const LOWER = 'abcdefghijkmnopqrstuvwxyz';
-const UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const LETTERS = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
 const DIGITS = '23456789';
 
 /**
  * Gut lesbares Startpasswort ohne verwechselbare Zeichen (0/O, 1/l/I).
- * Enthält immer mindestens einen Klein-, einen Großbuchstaben und eine Ziffer
- * (entspricht den Passwort-Anforderungen in Supabase).
+ * Enthält immer mindestens einen Buchstaben und eine Ziffer
+ * (Passwort-Anforderungen in Supabase: min. 8 Zeichen, „Letters and digits“).
  */
-export function generatePassword(length = 14) {
+export function generatePassword(length = 12) {
   const pick = (set) => set[randomInt(set.length)];
-  const all = LOWER + UPPER + DIGITS;
-  const chars = [pick(LOWER), pick(UPPER), pick(DIGITS)];
+  const all = LETTERS + DIGITS;
+  const chars = [pick(LETTERS), pick(DIGITS)];
   while (chars.length < length) chars.push(pick(all));
   // Fisher-Yates, damit die garantierten Zeichen nicht immer vorne stehen
   for (let i = chars.length - 1; i > 0; i--) {

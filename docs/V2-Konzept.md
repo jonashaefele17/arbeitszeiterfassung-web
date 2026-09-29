@@ -155,7 +155,7 @@ Nur wenn **derselbe Datensatz** auf zwei Geräten geändert wird, bevor eines sy
 - **Anmelden:** Benutzername + Passwort. Das gilt genauso für neue Geräte und nach dem Abmelden.
 - **Benutzername:** Supabase benötigt intern eine E-Mail-Adresse. Die App bildet den Benutzernamen daher auf eine Kunstadresse ab, z. B. `anna` → `anna@arbeitszeit.local`. Diese Adresse wird nie angeschrieben, und echte E-Mail-Adressen werden nicht gespeichert. Ob Supabase diese Form akzeptiert, wird zu Beginn von Etappe 1 geprüft; andernfalls wird eine garantiert gültige Domain-Form gewählt.
 - **Erster Login:** Das Konto startet mit einem Startpasswort vom Betreiber (`account_status.must_change_password = true`). Die App verlangt vor allem anderen ein eigenes Passwort und setzt das Flag danach über eine Serverfunktion zurück.
-- **Passwort-Regeln:** Mindestlänge 10 Zeichen, mindestens ein Klein- und ein Großbuchstabe sowie eine Ziffer. Das ist in Supabase konfiguriert und wird in der App vorab mit verständlichen Hinweisen geprüft. Startpasswörter aus dem Admin-Skript erfüllen die Regeln immer.
+- **Passwort-Regeln:** Mindestlänge 8 Zeichen, mindestens ein Buchstabe und eine Ziffer. Das ist in Supabase konfiguriert (Mindestlänge 8, „Letters and digits“) und wird in der App vorab geprüft (`src/domain/auth/passwordRules.ts`). Startpasswörter aus dem Admin-Skript erfüllen die Regeln immer.
 - **Passwort vergessen:** Es gibt keinen Selbst-Reset per Mail. Der Betreiber setzt per Admin-Skript ein neues Startpasswort, und beim nächsten Login muss wieder ein eigenes gesetzt werden.
 - **Sitzung:** Supabase gibt ein kurzlebiges Zugangs-Token (ca. 1 h) und ein langlebiges Erneuerungs-Token aus. Die App erneuert automatisch, man meldet sich also **einmal pro Gerät** an. Die maximale Sitzungsdauer bzw. das Inaktivitätslimit wird in Supabase konfiguriert, Vorschlag: 90 Tage Inaktivität.
 - **iOS:** App installieren („Zum Home-Bildschirm“) und **in der installierten App** anmelden. Installierte PWAs sind von der 7-Tage-Löschregel für Website-Daten ausgenommen, Safari-Tabs nicht.
@@ -198,7 +198,18 @@ Ein Kommandozeilen-Skript im Repo (`scripts/admin/`). Es nutzt den geheimen Serv
 
 ### Abmelden
 
-Optional die lokalen Daten löschen. Dazu gibt es eine Warnung, falls noch Änderungen ausstehen.
+**Bis einschließlich Etappe 2** (ohne Sync) bleiben die lokalen Daten beim Abmelden erhalten. Das Gerät hält dann die einzige Kopie, und Löschen wäre ein Datenverlust.
+
+**Ab Etappe 3** (mit Sync) gilt:
+
+| Zustand beim Abmelden | Verhalten |
+|---|---|
+| Alles synchronisiert | Die lokalen Daten werden **gelöscht**. Beim nächsten Login werden sie in Sekunden neu geladen. Auf dem Gerät bleiben keine Gesundheitsdaten zurück, auch nicht auf geteilten oder weitergegebenen Geräten. |
+| Änderungen ausstehend (z. B. offline erfasst) | Warnung „n Änderungen sind noch nicht gesichert“. Man kann zuerst synchronisieren (bei Verbindung) oder bewusst trotzdem abmelden, dann werden die ausstehenden Änderungen verworfen. Es wird nie still gelöscht. |
+| Offline, alles synchronisiert | Abmelden und Löschen sind möglich. Hinweis: Zum erneuten Anmelden wird Internet benötigt. |
+
+- **Warnung „Daten eines anderen Kontos“:** Sie bleibt als Sicherheitsnetz bestehen, z. B. für Abmeldungen durch abgelaufene Sitzungen, bei denen nicht gelöscht wurde. Mit dem Löschen beim Abmelden tritt sie im Normalfall aber nicht mehr auf.
+- **Abgelaufene oder widerrufene Sitzung:** Hier wird **nicht** automatisch gelöscht, weil ausstehende Änderungen betroffen sein könnten. Nach dem erneuten Login desselben Kontos wird synchronisiert.
 
 ## 8. Datenschutz und Sicherheit
 
@@ -266,7 +277,7 @@ Jede Etappe ist einzeln lauffähig und testbar.
 | 0 | **Vorbereitung** (Betreiber) | Supabase-Projekt in Frankfurt, 2FA, Registrierung und E-Mail-Bestätigung aus, Passwort-Mindestlänge, DPA abgeschlossen, Schlüssel hinterlegt (Anleitung: `docs/V2-Etappe-0.md`) |
 | 1 | **Schema, RLS und Admin-Skript** | SQL-Migrationen im Repo; RLS-Tests grün (A sieht B nicht); Admin-Skript legt Konto + Mitgliedschaft an; Kunstadresse als Benutzername geprüft |
 | 2 | **Login** | Benutzername + Passwort in der installierten PWA (iOS und Android), Pflicht-Passwortwechsel beim ersten Login, Sitzung bleibt über Neustarts erhalten, Passwort ändern, Abmelden |
-| 3 | **Sync (Push/Pull)** | Dexie-Migration (Outbox, Versionen, Sync-Metadaten), Repositories schreiben in die Outbox, Sync-Status-Anzeige; zwei Browser synchronisieren; Offline-Änderungen werden nachgeholt |
+| 3 | **Sync (Push/Pull)** | Dexie-Migration (Outbox, Versionen, Sync-Metadaten), Repositories schreiben in die Outbox, Sync-Status-Anzeige; zwei Browser synchronisieren; Offline-Änderungen werden nachgeholt; **Abmelden löscht lokale Daten, wenn alles synchronisiert ist, sonst Warnung mit bewusster Entscheidung** (Abschnitt 7) |
 | 4 | **Konflikte** | Konflikterkennung am Server, Konflikt-Dialog; Tests für gleichzeitiges Ändern, Löschen und doppelten Arbeitstag |
 | 5 | **Datenübernahme und Startablauf** | Übernahme bestehender V1.1-Daten, Onboarding für leere Konten, Abfrage bei vorhandenen Daten |
 | 6 | **Datenschutz-Funktionen** | Einwilligung, Datenschutzerklärung, Export, Konto löschen |

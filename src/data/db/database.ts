@@ -10,6 +10,11 @@ import type {
 import { publicHolidayName } from '../../domain/holidays/bavaria';
 import { regularPlannedMinutes, sortVersions } from '../../domain/services/scheduleService';
 
+export interface MetaEntry {
+  key: string;
+  value: string;
+}
+
 /**
  * Lokale Datenbank. Ausschließlich innerhalb von `src/data` verwenden –
  * alle anderen Schichten greifen über Repositories zu.
@@ -21,6 +26,8 @@ export class AppDatabase extends Dexie {
   vacationPeriods!: EntityTable<VacationPeriod, 'id'>;
   sickPeriods!: EntityTable<SickPeriod, 'id'>;
   customHolidays!: EntityTable<CustomHoliday, 'id'>;
+  /** Geräte-Metadaten (z. B. welchem Konto die lokalen Daten gehören). */
+  meta!: EntityTable<MetaEntry, 'key'>;
 
   constructor() {
     super('arbeitszeit');
@@ -46,6 +53,9 @@ export class AppDatabase extends Dexie {
           w.plannedMinutes = regularPlannedMinutes(w.date, versions);
         });
     });
+
+    // V2: Geräte-Metadaten (Konto-Zuordnung der lokalen Daten, später Sync-Stand).
+    this.version(3).stores({ meta: 'key' });
   }
 }
 

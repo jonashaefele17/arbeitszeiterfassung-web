@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useReadyData } from '../../app/AppDataContext';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { BottomSheet } from '../../components/ui/BottomSheet';
@@ -15,7 +15,9 @@ import { useToastStore } from '../../stores/toastStore';
 import { WEEKDAY_KEYS, WEEKDAY_LABELS, formatShortDate, type WeekdayKey } from '../../utils/date';
 import { runSafely } from '../../utils/errors';
 import { formatBalanceInput, formatDayCount, formatDuration } from '../../utils/format';
+import { AccountSection } from '../auth/AccountSection';
 import { ScheduleDayFields, isScheduleDayValid } from '../schedule/ScheduleDayFields';
+import { SettingsSection } from './SettingsSection';
 
 const VACATION_VALUES = range(0, 60);
 
@@ -78,12 +80,12 @@ export function SettingsView() {
     <div className="space-y-7">
       <PageHeader title="Einstellungen" />
 
-      <Section title="Profil">
+      <SettingsSection title="Profil">
         <NameField label="Vorname" value={profile.firstName} onSave={(firstName) => updateProfile({ firstName })} />
         <NameField label="Nachname" value={profile.lastName} onSave={(lastName) => updateProfile({ lastName })} />
-      </Section>
+      </SettingsSection>
 
-      <Section
+      <SettingsSection
         title="Standardarbeitswoche"
         footer="Änderungen gelten ab heute. Bereits erfasste Tage und vergangene Wochen bleiben unverändert."
       >
@@ -96,9 +98,9 @@ export function SettingsView() {
               onClick={() => setEditingDay(key)}
             />
           ))}
-      </Section>
+      </SettingsSection>
 
-      <Section
+      <SettingsSection
         title="Urlaub"
         footer={`Übrige Urlaubstage werden automatisch ins nächste Jahr übertragen. „Bereits genommen“ sind deine Urlaubstage ${startYear} vor dem ${formatShortDate(vacationAsOf)}.`}
       >
@@ -117,9 +119,9 @@ export function SettingsView() {
           value={formatDayCount(initialTaken)}
           onClick={() => openPicker('vacationTaken')}
         />
-      </Section>
+      </SettingsSection>
 
-      <Section
+      <SettingsSection
         title="Überstundenkonto"
         footer="Ab dem Kontostart zählen nicht erfasste Arbeitstage als Minusstunden. Der Startsaldo ist dein Stand zu Beginn."
       >
@@ -129,7 +131,9 @@ export function SettingsView() {
           value={formatBalanceInput(profile.initialBalanceMinutes)}
           onClick={() => openPicker('balance')}
         />
-      </Section>
+      </SettingsSection>
+
+      <AccountSection />
 
       <NumberPickerSheet
         open={picker === 'vacation'}
@@ -190,16 +194,6 @@ export function SettingsView() {
 function describeDay(day: WorkScheduleDay): string {
   if (!day.isWorkDay) return 'Frei';
   return `${day.start}–${day.end} · ${formatDuration(plannedMinutesOf(day))}`;
-}
-
-function Section({ title, footer, children }: { title: string; footer?: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-ink-3">{title}</h2>
-      <div className="divide-y divide-line rounded-3xl bg-surface px-5">{children}</div>
-      {footer && <p className="px-1 pt-2 text-[13px] leading-snug text-ink-2">{footer}</p>}
-    </section>
-  );
 }
 
 function NameField({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => void }) {
