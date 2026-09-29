@@ -127,8 +127,14 @@ async function applyRemoteRows(spec: SyncTableSpec, rows: RemoteRow[]): Promise<
       const localId = spec.toLocalId(String(row.id));
       const key = syncKey(spec.local, localId);
 
-      // Lokal ausstehende Änderung oder offener Konflikt: nicht überschreiben – der Push entscheidet.
-      if ((await db.outbox.get(key)) || (await db.conflicts.get(key))) continue;
+      // Offener Konflikt: nichts überschreiben, aber den neuesten Serverstand für die Entscheidung merken.
+      const conflict = await db.conflicts.get(key);
+      if (conflict) {
+        await db.conflicts.put({ ...conflict, remote: row });
+        continue;
+      }
+      // Lokal ausstehende Änderung: nicht überschreiben – der Push entscheidet.
+      if (await db.outbox.get(key)) continue;
 
       if (row.deleted) {
         await table.delete(localId);
@@ -173,6 +179,87 @@ export async function pull(ctx: SyncContext): Promise<number> {
     }
   }
   return applied;
+}
+
+// ---------------------------------------------------------------------------
+// Konflikte auflösen
+// ---------------------------------------------------------------------------
+
+export type ConflictChoice = 'local' | 'remote';
+
+export interface ConflictDetails {
+  key: string;
+  table: SyncTableName;
+  /** Stand dieses Geräts (`undefined` = hier gelöscht). */
+  local: object | undefined;
+  /** Stand des anderen Geräts bzw. am Server (`undefined` = dort gelöscht). */
+  remote: object | undefined;
+  detectedAt: string;
+}
+
+/** Offene Konflikte mit beiden Ständen im App-Format. */
+export async function listConflicts(): Promise<ConflictDetails[]> {
+  const conflicts = await db.conflicts.orderBy('key').toArray();
+  return Promise.all(
+    conflicts.map(async (c) => {
+      const spec = SYNC_TABLE_BY_NAME[c.table];
+      return {
+        key: c.key,
+        table: c.table,
+        local: await localTable(c.table).get(c.id),
+        remote: c.remote && !c.remote.deleted ? spec.fromRemote(c.remote) : undefined,
+        detectedAt: c.detectedAt,
+      };
+    }),
+  );
+}
+
+/**
+ * Entscheidung des Nutzers:
+ * - `remote`: Stand des anderen Geräts übernehmen (funktioniert auch offline).
+ * - `local`: Stand dieses Geräts behalten und hochladen (braucht Internet). Hat das andere Gerät
+ *   denselben Tag unter eigener ID angelegt, wird dessen Eintrag am Server als gelöscht markiert.
+ * Hat sich der Serverstand inzwischen erneut geändert, entsteht ein neuer Konflikt mit dem aktuellen Stand.
+ */
+export async function resolveConflict(ctx: SyncContext, key: string, choice: ConflictChoice): Promise<void> {
+  const conflict = await db.conflicts.get(key);
+  if (!conflict) return;
+  const spec = SYNC_TABLE_BY_NAME[conflict.table];
+  const table = localTable(conflict.table);
+  const remote = conflict.remote;
+  const sameRecord = !remote || String(remote.id) === spec.toRemoteId(conflict.id, ctx);
+
+  if (choice === 'remote') {
+    await db.transaction('rw', [table, db.outbox, db.recordVersions, db.conflicts], async () => {
+      await table.delete(conflict.id);
+      await db.outbox.delete(key);
+      await db.recordVersions.delete(key);
+      await db.conflicts.delete(key);
+      if (remote && !remote.deleted) {
+        const record = spec.fromRemote(remote) as { id: string } & Record<string, unknown>;
+        await table.put(record);
+        await db.recordVersions.put({ key: syncKey(conflict.table, record.id), version: Number(remote.version) });
+      }
+    });
+    return;
+  }
+
+  // choice === 'local'
+  if (!sameRecord && remote && !remote.deleted) {
+    // Gleicher Tag, anderer Eintrag: den Eintrag des anderen Geräts am Server entfernen.
+    const removed = await ctx.remote.update(spec, String(remote.id), Number(remote.version), { deleted: true });
+    if (!removed.ok) {
+      await db.conflicts.put({ ...conflict, remote: removed.row, detectedAt: new Date().toISOString() });
+      return;
+    }
+  }
+  await db.transaction('rw', [db.outbox, db.recordVersions, db.conflicts], async () => {
+    if (sameRecord && remote) await db.recordVersions.put({ key, version: Number(remote.version) });
+    else await db.recordVersions.delete(key);
+    await enqueue(conflict.table, conflict.id);
+    await db.conflicts.delete(key);
+  });
+  await push(ctx);
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import { transitions } from '../components/ui/motion';
 import { ForeignDataScreen, LoginScreen, NotConfiguredScreen, SetInitialPasswordScreen } from '../features/auth/AuthScreens';
 import { useAuthStore } from '../features/auth/authStore';
 import { DayEditorSheet } from '../features/day-editor/DayEditorSheet';
+import { ConflictBanner, ConflictSheet } from '../features/sync/ConflictSheet';
 import { SyncGate } from '../features/sync/SyncGate';
 import { MonthView } from '../features/monthly/MonthView';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
@@ -72,6 +73,7 @@ function MainShell() {
   return (
     <>
       <main className="safe-top mx-auto min-h-dvh max-w-lg px-5 pb-32">
+        <ConflictBanner />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}
@@ -88,6 +90,7 @@ function MainShell() {
       </main>
       <TabBar />
       <DayEditorSheet />
+      <ConflictSheet />
     </>
   );
 }

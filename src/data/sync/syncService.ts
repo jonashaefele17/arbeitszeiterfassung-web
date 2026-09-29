@@ -8,8 +8,10 @@ import {
   bootstrapUseAccountData,
   pull,
   push,
+  resolveConflict,
   unsyncedCount,
   type BootstrapResult,
+  type ConflictChoice,
   type SyncContext,
 } from './syncEngine';
 
@@ -135,4 +137,15 @@ export const syncService = {
   },
 
   unsyncedCount,
+
+  /**
+   * Konflikt auflösen. „Dieses Gerät behalten“ lädt sofort hoch und braucht daher Internet
+   * (sonst Fehler 'offline'); „Anderes übernehmen“ funktioniert auch offline.
+   */
+  async resolveConflict(key: string, choice: ConflictChoice): Promise<void> {
+    if (!ctx) throw new Error('not-started');
+    if (choice === 'local' && !navigator.onLine) throw new Error('offline');
+    await resolveConflict(ctx, key, choice);
+    void this.syncNow();
+  },
 };

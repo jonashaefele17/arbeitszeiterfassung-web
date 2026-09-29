@@ -4,6 +4,7 @@ import { transitions } from '../../components/ui/motion';
 import { syncService, useSyncStatus } from '../../data/sync/syncService';
 import { useSyncCounts } from '../../data/sync/useSyncCounts';
 import { useToastStore } from '../../stores/toastStore';
+import { useUiStore } from '../../stores/uiStore';
 
 type BadgeState = 'synced' | 'syncing' | 'pending' | 'offline' | 'conflict' | 'error';
 
@@ -71,7 +72,8 @@ export function SyncBadge() {
   const { state, text, pending } = useSyncBadgeState();
 
   const onTap = () => {
-    useToastStore.getState().show(text, state === 'conflict' ? 'error' : 'success');
+    if (state === 'conflict') return useUiStore.getState().openConflicts();
+    useToastStore.getState().show(text);
     if (navigator.onLine) void syncService.syncNow();
   };
 

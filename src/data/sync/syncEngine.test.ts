@@ -3,7 +3,17 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../db/database';
 import { dexieRepositories as repos } from '../repositories/dexieRepositories';
 import type { RemoteApi, RemoteWriteResult } from './remote';
-import { bootstrap, bootstrapUseAccountData, clearSyncedData, pull, push, unsyncedCount, type SyncContext } from './syncEngine';
+import {
+  bootstrap,
+  bootstrapUseAccountData,
+  clearSyncedData,
+  listConflicts,
+  pull,
+  push,
+  resolveConflict,
+  unsyncedCount,
+  type SyncContext,
+} from './syncEngine';
 import { SYNC_TABLE_BY_NAME, type RemoteRow, type SyncTableSpec } from './tables';
 
 const USER = 'user-1';
@@ -233,4 +243,93 @@ it('Spezifikation: Umwandlung ist verlustfrei (lokal → Server → lokal)', () 
   expect(spec.fromRemote({ id: 'v', ...spec.toRemote(local) })).toEqual(local);
   const plain = { id: 'p', startDate: '2026-09-01', endDate: '2026-09-05' };
   expect(spec.fromRemote({ id: 'p', ...spec.toRemote(plain) })).toEqual(plain);
+});
+
+describe('Konflikte auflösen', () => {
+  /** Erzeugt einen Konflikt am selben Arbeitstag: Server 15:00 (v2), dieses Gerät 16:00 (Basis v1). */
+  async function sameRecordConflict() {
+    await repos.workDays.save(workDay('2026-09-28'));
+    await push(ctx);
+    const id = (await db.workDays.toArray())[0]!.id;
+    remote.write('work_days', id, { end_time: '15:00' });
+    await repos.workDays.save({ ...workDay('2026-09-28', '16:00'), id });
+    await push(ctx);
+    return { id, key: `workDays:${id}` };
+  }
+
+  it('listet beide Stände im App-Format', async () => {
+    await sameRecordConflict();
+    const [c] = await listConflicts();
+    expect(c!.local).toMatchObject({ end: '16:00' });
+    expect(c!.remote).toMatchObject({ end: '15:00' });
+  });
+
+  it('„Dieses Gerät behalten“ überschreibt den Server bewusst', async () => {
+    const { id, key } = await sameRecordConflict();
+    await resolveConflict(ctx, key, 'local');
+    expect(remote.row('work_days', id)).toMatchObject({ end_time: '16:00', version: 3 });
+    expect(await unsyncedCount()).toBe(0);
+  });
+
+  it('„Anderes übernehmen“ ersetzt den lokalen Stand, auch offline', async () => {
+    const { id, key } = await sameRecordConflict();
+    remote.offline = true;
+    await resolveConflict(ctx, key, 'remote');
+    expect((await db.workDays.get(id))!.end).toBe('15:00');
+    expect(await unsyncedCount()).toBe(0);
+    remote.offline = false;
+    await push(ctx);
+    expect(remote.row('work_days', id)!.version).toBe(2); // nichts hochgeladen
+  });
+
+  it('zeigt den neuesten Serverstand, wenn das andere Gerät nach dem Konflikt erneut ändert', async () => {
+    const { id, key } = await sameRecordConflict();
+    remote.write('work_days', id, { end_time: '17:00' }); // v3
+    await pull(ctx);
+    const [c] = await listConflicts();
+    expect(c!.remote).toMatchObject({ end: '17:00' });
+    await resolveConflict(ctx, key, 'remote');
+    expect((await db.workDays.get(id))!.end).toBe('17:00');
+  });
+
+  it('Löschung am anderen Gerät: behalten stellt den Eintrag wieder her', async () => {
+    const { id, key } = await sameRecordConflict();
+    remote.write('work_days', id, { deleted: true });
+    await pull(ctx);
+    expect((await listConflicts())[0]!.remote).toBeUndefined();
+    await resolveConflict(ctx, key, 'local');
+    expect(remote.row('work_days', id)).toMatchObject({ deleted: false, end_time: '16:00' });
+  });
+
+  it('Gleicher Tag auf zwei Geräten: behalten ersetzt den Eintrag des anderen Geräts', async () => {
+    remote.write('work_days', 'other', { date: '2026-09-28', status: 'work', start_time: '07:00', end_time: '12:00', break_minutes: 0, planned_minutes: 330 });
+    await repos.workDays.save(workDay('2026-09-28'));
+    await push(ctx);
+    const [c] = await listConflicts();
+    await resolveConflict(ctx, c!.key, 'local');
+    expect(remote.row('work_days', 'other')!.deleted).toBe(true);
+    const mine = (await db.workDays.toArray())[0]!;
+    expect(remote.row('work_days', mine.id)).toMatchObject({ start_time: '08:00', deleted: false });
+    expect(await unsyncedCount()).toBe(0);
+  });
+
+  it('Gleicher Tag auf zwei Geräten: übernehmen ersetzt den lokalen Eintrag', async () => {
+    remote.write('work_days', 'other', { date: '2026-09-28', status: 'work', start_time: '07:00', end_time: '12:00', break_minutes: 0, planned_minutes: 330 });
+    await repos.workDays.save(workDay('2026-09-28'));
+    await push(ctx);
+    const [c] = await listConflicts();
+    await resolveConflict(ctx, c!.key, 'remote');
+    const days = await db.workDays.toArray();
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({ id: 'other', start: '07:00' });
+    expect(await unsyncedCount()).toBe(0);
+  });
+
+  it('behalten, obwohl der Server inzwischen erneut geändert wurde → neuer Konflikt statt Überschreiben', async () => {
+    const { id, key } = await sameRecordConflict();
+    remote.write('work_days', id, { end_time: '18:00' }); // v3, noch nicht abgeholt
+    await resolveConflict(ctx, key, 'local');
+    expect(remote.row('work_days', id)!.end_time).toBe('18:00');
+    expect((await listConflicts())[0]!.remote).toMatchObject({ end: '18:00' });
+  });
 });

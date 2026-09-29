@@ -9,12 +9,15 @@ interface UiState {
   currentMonth: YearMonth;
   selectedDate: ISODate | null;
   isDayEditorOpen: boolean;
+  isConflictSheetOpen: boolean;
   setTab: (tab: Tab) => void;
   setWeekStart: (weekStart: ISODate) => void;
   setMonth: (month: YearMonth) => void;
   goToToday: () => void;
   openDay: (date: ISODate) => void;
   closeDayEditor: () => void;
+  openConflicts: () => void;
+  closeConflicts: () => void;
 }
 
 /** Reiner UI-Zustand. Persistente Daten liegen ausschließlich in den Repositories. */
@@ -24,10 +27,13 @@ export const useUiStore = create<UiState>((set) => ({
   currentMonth: yearMonthOf(todayISO()),
   selectedDate: null,
   isDayEditorOpen: false,
+  isConflictSheetOpen: false,
   setTab: (activeTab) => set({ activeTab }),
   setWeekStart: (currentWeekStart) => set({ currentWeekStart }),
   setMonth: (currentMonth) => set({ currentMonth }),
   goToToday: () => set({ currentWeekStart: startOfWeek(todayISO()), currentMonth: yearMonthOf(todayISO()) }),
   openDay: (selectedDate) => set({ selectedDate, isDayEditorOpen: true }),
   closeDayEditor: () => set({ isDayEditorOpen: false }),
+  openConflicts: () => set({ isConflictSheetOpen: true }),
+  closeConflicts: () => set({ isConflictSheetOpen: false }),
 }));
