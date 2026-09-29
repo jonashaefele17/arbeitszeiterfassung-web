@@ -14,6 +14,7 @@ import { compareYearMonth, formatMonth, sameYearMonth, shiftMonth, yearMonthOf }
 import { runSafely } from '../../utils/errors';
 import { MonthCalendar } from './MonthCalendar';
 import { MonthStats } from './MonthStats';
+import { SyncBadge } from '../sync/SyncBadge';
 
 export function MonthView() {
   const { ctx, profile } = useReadyData();
@@ -50,6 +51,7 @@ export function MonthView() {
   return (
     <div>
       <PageHeader
+        accessory={<SyncBadge />}
         title={formatMonth(month)}
         subtitle={String(month.year)}
         actions={

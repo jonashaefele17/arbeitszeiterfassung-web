@@ -7,15 +7,20 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  /** Kleines Element direkt neben dem Titel (z. B. Sync-Status). */
+  accessory?: ReactNode;
 }
 
-export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions, accessory }: PageHeaderProps) {
   return (
     <header className="flex items-end justify-between gap-3 pb-5 pt-4">
       {/* Weiche Höhenänderung, wenn der Untertitel z. B. beim Wochenwechsel auf zwei Zeilen umbricht. */}
       <div className="min-w-0 flex-1">
         <AnimatedHeight>
-          <h1 className="truncate text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+            {accessory}
+          </div>
           {subtitle && <p className="text-[15px] text-ink-2">{subtitle}</p>}
         </AnimatedHeight>
       </div>

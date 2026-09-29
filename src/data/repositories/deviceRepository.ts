@@ -1,4 +1,5 @@
 import { db } from '../db/database';
+import { clearSyncedData } from '../sync/syncEngine';
 
 const LOCAL_OWNER = 'localOwnerUserId';
 
@@ -27,23 +28,9 @@ export const deviceRepository = {
     return counts.some((c) => c > 0);
   },
 
-  /** Löscht alle lokalen Nutzdaten und Metadaten dieses Geräts. */
+  /** Löscht alle lokalen Nutz-, Sync- und Metadaten dieses Geräts. */
   async clearAll(): Promise<void> {
-    await db.transaction(
-      'rw',
-      [db.profile, db.scheduleVersions, db.workDays, db.vacationPeriods, db.sickPeriods, db.customHolidays, db.meta],
-      async () => {
-        await Promise.all([
-          db.profile.clear(),
-          db.scheduleVersions.clear(),
-          db.workDays.clear(),
-          db.vacationPeriods.clear(),
-          db.sickPeriods.clear(),
-          db.customHolidays.clear(),
-          db.meta.clear(),
-        ]);
-      },
-    );
+    await clearSyncedData();
   },
 };
 

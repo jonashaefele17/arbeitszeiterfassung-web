@@ -6,6 +6,7 @@ import { transitions } from '../components/ui/motion';
 import { ForeignDataScreen, LoginScreen, NotConfiguredScreen, SetInitialPasswordScreen } from '../features/auth/AuthScreens';
 import { useAuthStore } from '../features/auth/authStore';
 import { DayEditorSheet } from '../features/day-editor/DayEditorSheet';
+import { SyncGate } from '../features/sync/SyncGate';
 import { MonthView } from '../features/monthly/MonthView';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { WeekView } from '../features/overview/WeekView';
@@ -46,7 +47,11 @@ function AuthGate() {
     case 'foreign-data':
       return <ForeignDataScreen user={auth.user} />;
     case 'signed-in':
-      return <Root />;
+      return (
+        <SyncGate key={auth.user.id} user={auth.user}>
+          <Root />
+        </SyncGate>
+      );
   }
 }
 

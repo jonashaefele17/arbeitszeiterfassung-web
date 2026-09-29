@@ -18,6 +18,7 @@ import {
 } from '../../utils/date';
 import { formatDuration } from '../../utils/format';
 import { PageHeader, TodayButton } from '../../components/layout/PageHeader';
+import { SyncBadge } from '../sync/SyncBadge';
 
 export function WeekView() {
   const { ctx } = useReadyData();
@@ -45,6 +46,7 @@ export function WeekView() {
   return (
     <div>
       <PageHeader
+        accessory={<SyncBadge />}
         title={`KW ${isoWeekNumber(weekStart)}`}
         subtitle={`${formatDayMonth(weekStart)} – ${formatDayMonth(addDays(weekStart, 4))}`}
         actions={

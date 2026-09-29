@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authRepository, type AuthUser } from '../../data/auth/authRepository';
 import { deviceRepository } from '../../data/repositories/deviceRepository';
+import { syncService } from '../../data/sync/syncService';
 import { useUiStore } from '../../stores/uiStore';
 
 export type AuthState =
@@ -19,7 +20,8 @@ interface AuthStore {
   signIn: (username: string, password: string) => Promise<void>;
   initialPasswordSet: () => Promise<void>;
   discardForeignData: () => Promise<void>;
-  signOut: () => Promise<void>;
+  /** Abmelden; `discardLocalData` entfernt alle Daten dieses Geräts (nur wenn gesichert oder bewusst verworfen). */
+  signOut: (options?: { discardLocalData?: boolean }) => Promise<void>;
 }
 
 // Laufende Auflösungen werden durchnummeriert; nur das Ergebnis der jüngsten zählt.
@@ -54,7 +56,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     init: async () => {
       if (!authRepository.isConfigured()) return set({ state: { status: 'not-configured' } });
       unsubscribe?.();
-      unsubscribe = authRepository.onSignedOut(() => void resolve(null));
+      // Sitzung abgelaufen/widerrufen: Sync stoppen, lokale Daten aber behalten (evtl. ausstehende Änderungen).
+      unsubscribe = authRepository.onSignedOut(() => {
+        syncService.stop();
+        void resolve(null);
+      });
       await resolve(await authRepository.getCurrentUser());
     },
 
@@ -78,7 +84,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       await resolve(current.user);
     },
 
-    signOut: async () => {
+    signOut: async ({ discardLocalData = false } = {}) => {
+      syncService.stop();
+      if (discardLocalData) await deviceRepository.clearAll();
       await authRepository.signOut();
       await resolve(null);
     },

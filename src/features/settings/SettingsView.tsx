@@ -18,6 +18,7 @@ import { formatBalanceInput, formatDayCount, formatDuration } from '../../utils/
 import { AccountSection } from '../auth/AccountSection';
 import { ScheduleDayFields, isScheduleDayValid } from '../schedule/ScheduleDayFields';
 import { SettingsSection } from './SettingsSection';
+import { SyncBadge } from '../sync/SyncBadge';
 
 const VACATION_VALUES = range(0, 60);
 
@@ -78,7 +79,7 @@ export function SettingsView() {
 
   return (
     <div className="space-y-7">
-      <PageHeader title="Einstellungen" />
+      <PageHeader title="Einstellungen" accessory={<SyncBadge />} />
 
       <SettingsSection title="Profil">
         <NameField label="Vorname" value={profile.firstName} onSave={(firstName) => updateProfile({ firstName })} />

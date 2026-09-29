@@ -10,7 +10,7 @@ import { NewPasswordFields, canSubmitNewPassword } from './NewPasswordFields';
 const errorText = (error: unknown) => AUTH_ERROR_TEXT[error instanceof AuthError ? error.code : 'unknown'];
 
 /** Gemeinsamer Rahmen der Anmelde-Bildschirme (ruhig, fokussiert, wie das Onboarding). */
-function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
+export function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <div className="safe-top safe-bottom mx-auto flex min-h-dvh max-w-lg flex-col px-6">
       <div className="pt-14">

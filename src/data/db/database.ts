@@ -15,6 +15,42 @@ export interface MetaEntry {
   value: string;
 }
 
+/** Lokale Tabellen, die mit dem Server synchronisiert werden. */
+export type SyncTableName =
+  | 'profile'
+  | 'scheduleVersions'
+  | 'workDays'
+  | 'vacationPeriods'
+  | 'sickPeriods'
+  | 'customHolidays';
+
+/** Ausstehende lokale Änderung (pro Datensatz zusammengefasst). */
+export interface OutboxEntry {
+  /** `${table}:${id}` */
+  key: string;
+  table: SyncTableName;
+  id: string;
+  /** Wechselt bei jeder Änderung – so erkennt der Sync Änderungen während des Hochladens. */
+  stamp: string;
+}
+
+/** Zuletzt bekannte Serverversion eines Datensatzes (Basis der Konflikterkennung). */
+export interface RecordVersion {
+  key: string;
+  version: number;
+}
+
+/** Festgehaltener Konflikt: lokal und am Server unterschiedlich geändert. */
+export interface SyncConflict {
+  key: string;
+  table: SyncTableName;
+  /** ID des lokalen Datensatzes. */
+  id: string;
+  /** Serverzeile zum Zeitpunkt der Erkennung (im Serverformat), `null` = am Server nicht vorhanden. */
+  remote: Record<string, unknown> | null;
+  detectedAt: string;
+}
+
 /**
  * Lokale Datenbank. Ausschließlich innerhalb von `src/data` verwenden –
  * alle anderen Schichten greifen über Repositories zu.
@@ -28,6 +64,9 @@ export class AppDatabase extends Dexie {
   customHolidays!: EntityTable<CustomHoliday, 'id'>;
   /** Geräte-Metadaten (z. B. welchem Konto die lokalen Daten gehören). */
   meta!: EntityTable<MetaEntry, 'key'>;
+  outbox!: EntityTable<OutboxEntry, 'key'>;
+  recordVersions!: EntityTable<RecordVersion, 'key'>;
+  conflicts!: EntityTable<SyncConflict, 'key'>;
 
   constructor() {
     super('arbeitszeit');
@@ -56,6 +95,9 @@ export class AppDatabase extends Dexie {
 
     // V2: Geräte-Metadaten (Konto-Zuordnung der lokalen Daten, später Sync-Stand).
     this.version(3).stores({ meta: 'key' });
+
+    // V2 Etappe 3: Synchronisierung (Warteschlange, Serverversionen, Konflikte).
+    this.version(4).stores({ outbox: 'key, table', recordVersions: 'key', conflicts: 'key' });
   }
 }
 

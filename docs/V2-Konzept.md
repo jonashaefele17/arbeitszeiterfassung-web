@@ -279,7 +279,7 @@ Jede Etappe ist einzeln lauffähig und testbar.
 | 2 | **Login** | Benutzername + Passwort in der installierten PWA (iOS und Android), Pflicht-Passwortwechsel beim ersten Login, Sitzung bleibt über Neustarts erhalten, Passwort ändern, Abmelden |
 | 3 | **Sync (Push/Pull)** | Dexie-Migration (Outbox, Versionen, Sync-Metadaten), Repositories schreiben in die Outbox, Sync-Status-Anzeige; zwei Browser synchronisieren; Offline-Änderungen werden nachgeholt; **Abmelden löscht lokale Daten, wenn alles synchronisiert ist, sonst Warnung mit bewusster Entscheidung** (Abschnitt 7) |
 | 4 | **Konflikte** | Konflikterkennung am Server, Konflikt-Dialog; Tests für gleichzeitiges Ändern, Löschen und doppelten Arbeitstag |
-| 5 | **Datenübernahme und Startablauf** | Übernahme bestehender V1.1-Daten, Onboarding für leere Konten, Abfrage bei vorhandenen Daten |
+| 5 | **Datenübernahme und Startablauf** (in Etappe 3 vorgezogen) | Übernahme bestehender V1.1-Daten, Onboarding für leere Konten, Abfrage bei vorhandenen Daten |
 | 6 | **Datenschutz-Funktionen** | Einwilligung, Datenschutzerklärung, Export, Konto löschen |
 | 7 | **Betrieb** | Keep-alive gegen Pausieren, verschlüsseltes Backup-Skript samt getesteter Wiederherstellung, Anleitung „Nutzer hinzufügen / Passwort zurücksetzen“, README |
 
