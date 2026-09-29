@@ -31,7 +31,7 @@ export function HolidayEditor({ day, onDone }: HolidayEditorProps) {
       <div className="pb-2">
         <p className="text-[20px] font-semibold">{publicName}</p>
         <p className="pt-1 text-[15px] text-ink-2">
-          Gesetzlicher Feiertag in Bayern – ohne Sollzeit.
+          Gesetzlicher Feiertag in Bayern.
           {day.status === 'work' && ' Da du an diesem Tag gearbeitet hast, zählt deine Arbeitszeit.'}
         </p>
       </div>
@@ -56,7 +56,6 @@ export function HolidayEditor({ day, onDone }: HolidayEditorProps) {
     return (
       <div>
         <p className="text-[20px] font-semibold">Manueller Feiertag</p>
-        <p className="pt-1 text-[15px] text-ink-2">Dieser Tag zählt ohne Sollzeit.</p>
         <div className="pt-5">
           <Button block variant="danger" onClick={() => setDialog('remove')}>
             Feiertag entfernen
@@ -79,7 +78,7 @@ export function HolidayEditor({ day, onDone }: HolidayEditorProps) {
   return (
     <div>
       <p className="text-[15px] text-ink-2">
-        Der Tag wird als Feiertag eingetragen – ohne Sollzeit, ohne Arbeitszeit.
+        Der Tag wird als Feiertag eingetragen.
       </p>
       {analysis.notes.map((n) => (
         <p key={n} className="pt-1 text-[15px] text-ink-2">

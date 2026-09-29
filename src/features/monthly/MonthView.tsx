@@ -5,8 +5,10 @@ import { PageHeader, TodayButton } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { IconButton } from '../../components/ui/IconButton';
 import { ChevronLeft, ChevronRight, ShareIcon } from '../../components/ui/icons';
+import { AnimatedHeight } from '../../components/ui/AnimatedHeight';
 import { transitions } from '../../components/ui/motion';
 import { balanceForMonth, resolveMonth, summarize, vacationAccount } from '../../domain/calculations/summary';
+import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import { useUiStore } from '../../stores/uiStore';
 import { compareYearMonth, formatMonth, sameYearMonth, shiftMonth, yearMonthOf } from '../../utils/date';
 import { runSafely } from '../../utils/errors';
@@ -34,6 +36,7 @@ export function MonthView() {
     setDirection(amount);
     setMonth(shiftMonth(month, amount));
   };
+  const swipe = useHorizontalSwipe(go);
 
   const exportPdf = async () => {
     setExporting(true);
@@ -68,24 +71,31 @@ export function MonthView() {
         }
       />
 
-      <AnimatePresence mode="popLayout" initial={false} custom={direction}>
-        <motion.div
-          key={`${month.year}-${month.month}`}
-          custom={direction}
-          variants={{
-            enter: (d: number) => ({ x: d * 40, opacity: 0 }),
-            center: { x: 0, opacity: 1 },
-            exit: (d: number) => ({ x: d * -40, opacity: 0 }),
-          }}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={transitions.standard}
-        >
-          <MonthCalendar month={month} days={days} today={ctx.today} />
-          <MonthStats summary={summary} balance={balance} vacation={vacation} />
-        </motion.div>
-      </AnimatePresence>
+      {/* Nur der Kalender wird gewischt und animiert; die Statistiken darunter bleiben stehen. */}
+      <AnimatedHeight>
+        <div className="relative">
+          <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+            <motion.div
+              key={`${month.year}-${month.month}`}
+              custom={direction}
+              variants={{
+                enter: (d: number) => ({ x: d * 40, opacity: 0 }),
+                center: { x: 0, opacity: 1 },
+                exit: (d: number) => ({ x: d * -40, opacity: 0 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={transitions.standard}
+              {...swipe}
+              className="touch-pan-y"
+            >
+              <MonthCalendar month={month} days={days} today={ctx.today} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </AnimatedHeight>
+      <MonthStats summary={summary} balance={balance} vacation={vacation} />
 
       <div className="pt-6">
         <Button block variant="secondary" onClick={exportPdf} disabled={exporting} className="gap-2">

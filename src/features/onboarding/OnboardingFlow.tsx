@@ -10,7 +10,7 @@ import { transitions } from '../../components/ui/motion';
 import { ONBOARDING_STEPS, useOnboardingStore } from '../../stores/onboardingStore';
 import { WEEKDAY_LABELS, todayISO, type WeekdayKey } from '../../utils/date';
 import { runSafely } from '../../utils/errors';
-import { formatBalance } from '../../utils/format';
+import { formatBalanceInput } from '../../utils/format';
 import { ScheduleDayFields, isScheduleDayValid } from '../schedule/ScheduleDayFields';
 
 const WEEKDAY_ADVERB: Record<WeekdayKey, string> = {
@@ -37,6 +37,10 @@ export function OnboardingFlow() {
         return isScheduleDayValid(state.schedule[step.day]);
       case 'vacation':
         return Number.isInteger(state.vacationDaysPerYear) && state.vacationDaysPerYear >= 0;
+      case 'vacationCarryover':
+        return Number.isInteger(state.vacationCarryoverDays) && state.vacationCarryoverDays >= 0;
+      case 'vacationTaken':
+        return Number.isInteger(state.vacationTakenDays) && state.vacationTakenDays >= 0;
       case 'balance':
         return true;
     }
@@ -50,7 +54,10 @@ export function OnboardingFlow() {
           firstName: state.firstName.trim(),
           lastName: state.lastName.trim(),
           vacationDaysPerYear: state.vacationDaysPerYear,
+          initialVacationTakenDays: state.vacationTakenDays,
+          initialVacationCarryoverDays: state.vacationCarryoverDays,
           trackingStartDate: todayISO(),
+          initialVacationAsOf: todayISO(),
           initialBalanceMinutes: state.initialBalanceMinutes,
         },
         state.schedule,
@@ -144,6 +151,32 @@ function StepContent() {
           <VacationStepper value={state.vacationDaysPerYear} onChange={state.setVacationDays} />
         </Question>
       );
+    case 'vacationCarryover':
+      return (
+        <Question title={`Wie viele Urlaubstage hast du aus ${new Date().getFullYear() - 1} übrig?`}>
+          <VacationStepper
+            value={state.vacationCarryoverDays}
+            onChange={state.setVacationCarryoverDays}
+            label="Resturlaub aus dem Vorjahr"
+          />
+          <p className="pt-6 text-center text-[15px] text-ink-2">
+            Resturlaub wird zu deinem Urlaubsanspruch für dieses Jahr addiert.
+          </p>
+        </Question>
+      );
+    case 'vacationTaken':
+      return (
+        <Question title={`Wie viele Urlaubstage hast du ${new Date().getFullYear()} schon genommen?`}>
+          <VacationStepper
+            value={state.vacationTakenDays}
+            onChange={state.setVacationTakenDays}
+            label="Bereits genommene Urlaubstage"
+          />
+          <p className="pt-6 text-center text-[15px] text-ink-2">
+            Diese Tage werden von deinem Urlaubskonto für dieses Jahr abgezogen.
+          </p>
+        </Question>
+      );
     case 'balance':
       return <BalanceStep />;
   }
@@ -183,7 +216,15 @@ function BigInput({ label, value, onChange, autoComplete }: BigInputProps) {
   );
 }
 
-function VacationStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function VacationStepper({
+  value,
+  onChange,
+  label = 'Urlaubstage pro Jahr',
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  label?: string;
+}) {
   const set = (v: number) => onChange(Math.min(99, Math.max(0, v)));
   return (
     <div className="flex items-center justify-center gap-6 pt-6">
@@ -191,7 +232,7 @@ function VacationStepper({ value, onChange }: { value: number; onChange: (v: num
         −
       </StepperButton>
       <label className="flex flex-col items-center">
-        <span className="sr-only">Urlaubstage pro Jahr</span>
+        <span className="sr-only">{label}</span>
         <input
           inputMode="numeric"
           value={Number.isNaN(value) ? '' : String(value)}
@@ -235,10 +276,10 @@ function BalanceStep() {
         whileTap={{ scale: 0.98 }}
         transition={transitions.micro}
         onClick={() => setOpen(true)}
-        aria-label={`Überstundenstand ${formatBalance(initialBalanceMinutes)} ändern`}
+        aria-label={`Überstundenstand ${formatBalanceInput(initialBalanceMinutes)} ändern`}
         className="tabular w-full rounded-2xl bg-surface py-8 text-center text-[44px] font-semibold"
       >
-        {formatBalance(initialBalanceMinutes)}
+        {formatBalanceInput(initialBalanceMinutes)}
       </motion.button>
       <p className="pt-4 text-[15px] text-ink-2">
         Dein Überstundenkonto startet heute mit diesem Stand. Du kannst ihn später in den Einstellungen ändern.

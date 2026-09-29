@@ -53,14 +53,24 @@ export function MonthCalendar({ month, days, today }: MonthCalendarProps) {
             >
               <span
                 className={`tabular flex size-8 items-center justify-center rounded-full text-[17px] ${
-                  isToday ? 'bg-accent font-semibold text-white' : date < today ? 'text-ink-2' : 'text-ink'
+                  isToday
+                    ? 'bg-accent font-semibold text-white'
+                    : day.isMissing
+                      ? 'bg-warn-soft font-semibold text-warn-ink ring-1 ring-warn'
+                      : date < today
+                        ? 'text-ink-2'
+                        : 'text-ink'
                 }`}
               >
                 {dayOfMonth(date)}
               </span>
               <span
                 className={`tabular text-[12px] leading-none ${
-                  day.status === 'work' ? 'font-semibold text-ink' : 'font-medium text-ink-2'
+                  day.status === 'work'
+                    ? 'font-semibold text-ink'
+                    : day.isMissing
+                      ? 'font-medium text-warn-ink'
+                      : 'font-medium text-ink-2'
                 }`}
               >
                 {label}
@@ -79,6 +89,10 @@ function cellLabel(day: ResolvedDay): string {
       return formatDurationShort(day.actualMinutes);
     case 'vacation':
       return 'Urlaub';
+    case 'overtimeOff':
+      return 'Ü-frei';
+    case 'empty':
+      return day.isMissing ? 'Offen' : '';
     case 'sick':
       return 'Krank';
     case 'holiday':

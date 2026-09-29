@@ -1,5 +1,5 @@
 import { repositories } from '../../data/repositories';
-import type { DatePeriod, WorkDay } from '../../domain/models';
+import type { VacationPeriod, WorkDay } from '../../domain/models';
 import { useToastStore } from '../../stores/toastStore';
 import { runSafely } from '../../utils/errors';
 import type { ISODate } from '../../utils/date';
@@ -24,12 +24,16 @@ export async function deleteWorkDay(id: string): Promise<boolean> {
 
 export async function savePeriod(
   kind: 'vacation' | 'sick',
-  period: Omit<DatePeriod, 'id'> & { id?: string },
+  period: Omit<VacationPeriod, 'id'> & { id?: string },
   replaceWorkDayIds: string[],
 ): Promise<boolean> {
   const repo = kind === 'vacation' ? repositories.vacations : repositories.sickness;
   const ok = await runSafely(() => repo.save(period, replaceWorkDayIds));
-  if (ok) success(kind === 'vacation' ? 'Urlaub eingetragen' : 'Krankheit eingetragen');
+  if (ok) {
+    success(
+      kind === 'sick' ? 'Krankheit eingetragen' : period.kind === 'overtime' ? 'Überstunden frei eingetragen' : 'Urlaub eingetragen',
+    );
+  }
   return ok;
 }
 

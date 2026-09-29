@@ -18,10 +18,19 @@ export function MonthStats({ summary, balance, vacation }: MonthStatsProps) {
         <Stat label="Monatssaldo" value={formatBalance(summary.balanceMinutes)} emphasis />
       </Group>
 
-      <div className="grid grid-cols-3 gap-2">
-        <Tile label="Urlaub" value={formatDayCount(summary.vacationDays)} />
-        <Tile label="Krank" value={formatDayCount(summary.sickDays)} />
-        <Tile label="Feiertage" value={formatDayCount(summary.holidayDays)} />
+      <div>
+        <div className="grid grid-cols-2 gap-2">
+          <Tile label="Urlaub" value={formatDayCount(summary.vacationDays)} />
+          <Tile label="Überstunden frei" value={formatDayCount(summary.overtimeOffDays)} />
+          <Tile label="Krank" value={formatDayCount(summary.sickDays)} />
+          <Tile label="Feiertage" value={formatDayCount(summary.holidayDays)} />
+        </div>
+        {summary.missingDays > 0 && (
+          <p className="mt-2 flex items-center gap-2 rounded-2xl bg-warn-soft px-4 py-3 text-[15px] font-medium text-warn-ink">
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-warn" />
+            {formatDayCount(summary.missingDays)} nicht eingetragen
+          </p>
+        )}
       </div>
 
       <section aria-labelledby="balance-heading">
@@ -42,6 +51,7 @@ export function MonthStats({ summary, balance, vacation }: MonthStatsProps) {
         <SectionTitle id="vacation-heading">Urlaubskonto {vacation.year}</SectionTitle>
         <Group>
           <Stat label="Anspruch" value={formatDayCount(vacation.entitlement)} />
+          {vacation.carryover > 0 && <Stat label="Resturlaub aus Vorjahr" value={formatDayCount(vacation.carryover)} />}
           <Stat label="Genommen" value={formatDayCount(vacation.taken)} />
           <Stat label="Verbleibend" value={formatDayCount(vacation.remaining)} emphasis />
         </Group>

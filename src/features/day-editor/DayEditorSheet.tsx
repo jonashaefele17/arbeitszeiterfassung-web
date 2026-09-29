@@ -36,6 +36,8 @@ function initialKind(day: ResolvedDay): EditorKind | null {
     case 'sick':
     case 'holiday':
       return day.status;
+    case 'overtimeOff':
+      return 'vacation';
     default:
       return null;
   }

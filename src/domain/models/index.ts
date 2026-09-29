@@ -29,6 +29,15 @@ export interface UserProfile {
   trackingStartDate: ISODate;
   /** Überstundenstand beim Start der App-Nutzung. */
   initialBalanceMinutes: number;
+  /**
+   * Stichtag der Urlaubs-Startwerte (Onboarding-Datum). Bleibt beim Verschieben des Kontostarts erhalten;
+   * fehlt bei alten Profilen = Kontostart.
+   */
+  initialVacationAsOf?: ISODate;
+  /** Im Jahr des Stichtags davor bereits genommene Urlaubstage (fehlt bei alten Profilen = 0). */
+  initialVacationTakenDays?: number;
+  /** Resturlaub aus dem Vorjahr des Stichtags (fehlt bei alten Profilen = 0). */
+  initialVacationCarryoverDays?: number;
 }
 
 export interface WorkDay {
@@ -48,7 +57,10 @@ export interface DatePeriod {
   endDate: ISODate;
 }
 
-export type VacationPeriod = DatePeriod;
+/** Urlaubszeitraum. `kind: 'overtime'` = freie Tage auf Überstunden (verbraucht keinen Urlaub). */
+export interface VacationPeriod extends DatePeriod {
+  kind?: 'overtime';
+}
 export type SickPeriod = DatePeriod;
 
 export interface CustomHoliday {
@@ -61,6 +73,7 @@ export type DayStatus =
   | 'holiday' // gesetzlicher oder manueller Feiertag
   | 'sick'
   | 'vacation'
+  | 'overtimeOff' // frei auf Überstunden: Soll, aber kein Ist
   | 'empty' // regulärer Arbeitstag ohne Eintrag
   | 'off'; // kein regulärer Arbeitstag, kein Eintrag
 
@@ -73,6 +86,8 @@ export interface ResolvedDay {
   /** Sollzeit laut Standardwoche an diesem Tag (unabhängig vom Status). */
   regularPlannedMinutes: number;
   isRegularWorkDay: boolean;
+  /** Vergangener regulärer Arbeitstag (ab Kontostart) ohne Eintrag. */
+  isMissing: boolean;
   workDay?: WorkDay;
   holiday?: { name: string; source: 'public' | 'custom'; customId?: string };
   vacationPeriod?: VacationPeriod;
@@ -86,5 +101,7 @@ export interface MonthlySummary {
   vacationDays: number;
   sickDays: number;
   holidayDays: number;
+  overtimeOffDays: number;
+  missingDays: number;
   workDays: number;
 }

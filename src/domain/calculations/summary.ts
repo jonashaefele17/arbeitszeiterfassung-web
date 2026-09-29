@@ -27,6 +27,8 @@ export function summarize(days: readonly ResolvedDay[], ctx: CalculationContext)
     vacationDays: 0,
     sickDays: 0,
     holidayDays: 0,
+    overtimeOffDays: 0,
+    missingDays: 0,
     workDays: 0,
   };
   for (const day of days) {
@@ -37,7 +39,9 @@ export function summarize(days: readonly ResolvedDay[], ctx: CalculationContext)
     if (day.status === 'vacation') summary.vacationDays++;
     else if (day.status === 'sick') summary.sickDays++;
     else if (day.status === 'holiday') summary.holidayDays++;
+    else if (day.status === 'overtimeOff') summary.overtimeOffDays++;
     else if (day.status === 'work') summary.workDays++;
+    if (day.isMissing) summary.missingDays++;
   }
   return summary;
 }
@@ -75,14 +79,34 @@ export function balanceForMonth(ym: YearMonth, ctx: CalculationContext): Balance
 export interface VacationAccount {
   year: number;
   entitlement: number;
+  /** Resturlaub aus dem Vorjahr. */
+  carryover: number;
   taken: number;
   remaining: number;
 }
 
-/** Urlaubskonto pro Kalenderjahr. Zählt alle Tage mit aufgelöstem Status „Urlaub“. */
+/**
+ * In einem Jahr genommene Urlaubstage. Im Bezugsjahr der Startwerte: angegebener Wert
+ * + App-Einträge ab dem Stichtag (davor ist durch den Startwert abgedeckt).
+ */
+function vacationTaken(year: number, refYear: number, ctx: CalculationContext): number {
+  const isRefYear = year === refYear;
+  const from = isRefYear ? ctx.initialVacationAsOf : `${year}-01-01`;
+  const inApp = resolveRange(from, `${year}-12-31`, ctx).filter((d) => d.status === 'vacation').length;
+  return inApp + (isRefYear ? ctx.initialVacationTakenDays : 0);
+}
+
+/**
+ * Urlaubskonto pro Kalenderjahr: Anspruch + Resturlaub aus dem Vorjahr − genommen.
+ * Resturlaub wird unbegrenzt übertragen (nie negativ). Die Startwerte (Resturlaub, bereits genommen)
+ * gehören fest zum Jahr ihres Stichtags – auch wenn der Kontostart später verschoben wird.
+ */
 export function vacationAccount(year: number, entitlement: number, ctx: CalculationContext): VacationAccount {
-  const taken = resolveRange(`${year}-01-01`, `${year}-12-31`, ctx).filter(
-    (d) => d.status === 'vacation',
-  ).length;
-  return { year, entitlement, taken, remaining: entitlement - taken };
+  const refYear = Number(ctx.initialVacationAsOf.slice(0, 4));
+  let carryover = year >= refYear ? ctx.initialVacationCarryoverDays : 0;
+  for (let y = refYear; y < year; y++) {
+    carryover = Math.max(0, entitlement + carryover - vacationTaken(y, refYear, ctx));
+  }
+  const taken = vacationTaken(year, refYear, ctx);
+  return { year, entitlement, carryover, taken, remaining: entitlement + carryover - taken };
 }

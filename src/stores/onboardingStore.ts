@@ -8,6 +8,8 @@ export type OnboardingStep =
   | { kind: 'lastName' }
   | { kind: 'weekday'; day: WeekdayKey }
   | { kind: 'vacation' }
+  | { kind: 'vacationCarryover' }
+  | { kind: 'vacationTaken' }
   | { kind: 'balance' };
 
 export const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -15,6 +17,8 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   { kind: 'lastName' },
   ...WEEKDAY_KEYS.map((day) => ({ kind: 'weekday', day }) as const),
   { kind: 'vacation' },
+  { kind: 'vacationCarryover' },
+  { kind: 'vacationTaken' },
   { kind: 'balance' },
 ];
 
@@ -27,6 +31,8 @@ interface OnboardingState {
   /** Wochentage, die der Benutzer bereits gesehen hat. Folgetage übernehmen sonst den Vortag. */
   visited: WeekdayKey[];
   vacationDaysPerYear: number;
+  vacationTakenDays: number;
+  vacationCarryoverDays: number;
   initialBalanceMinutes: number;
   next: () => void;
   back: () => void;
@@ -34,6 +40,8 @@ interface OnboardingState {
   setLastName: (v: string) => void;
   setScheduleDay: (day: WeekdayKey, value: WorkScheduleDay) => void;
   setVacationDays: (v: number) => void;
+  setVacationTakenDays: (v: number) => void;
+  setVacationCarryoverDays: (v: number) => void;
   setInitialBalance: (v: number) => void;
 }
 
@@ -46,6 +54,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   schedule: DEFAULT_SCHEDULE,
   visited: [],
   vacationDaysPerYear: DEFAULT_VACATION_DAYS,
+  vacationTakenDays: 0,
+  vacationCarryoverDays: 0,
   initialBalanceMinutes: 0,
   next: () => {
     const { stepIndex, schedule, visited } = get();
@@ -68,5 +78,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setLastName: (lastName) => set({ lastName }),
   setScheduleDay: (day, value) => set((s) => ({ schedule: { ...s.schedule, [day]: value } })),
   setVacationDays: (vacationDaysPerYear) => set({ vacationDaysPerYear }),
+  setVacationTakenDays: (vacationTakenDays) => set({ vacationTakenDays }),
+  setVacationCarryoverDays: (vacationCarryoverDays) => set({ vacationCarryoverDays }),
   setInitialBalance: (initialBalanceMinutes) => set({ initialBalanceMinutes }),
 }));

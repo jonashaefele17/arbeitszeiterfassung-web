@@ -51,6 +51,10 @@ function statusText(day: ResolvedDay): string {
       return day.holiday ? 'Arbeit (Feiertag)' : 'Arbeit';
     case 'vacation':
       return 'Urlaub';
+    case 'overtimeOff':
+      return 'Überstunden frei';
+    case 'empty':
+      return day.isMissing ? 'Nicht eingetragen' : '–';
     case 'sick':
       return 'Krank';
     case 'holiday':
@@ -63,14 +67,16 @@ function statusText(day: ResolvedDay): string {
 function toCells(day: ResolvedDay, trackingStartDate: string): Cells {
   const counts = day.date >= trackingStartDate;
   const w = day.workDay;
-  const showTimes = day.status !== 'holiday' && counts;
+  const showTimes = counts;
   return {
     date: formatWeekdayShortDate(day.date),
     status: statusText(day),
     start: w?.start ?? '',
     end: w?.end ?? '',
     break: w ? formatBreak(w.breakMinutes) : '',
-    actual: showTimes && day.status !== 'empty' ? formatDuration(day.actualMinutes) : '',
+    actual: showTimes && (day.status === 'work' || (day.status !== 'empty' && day.plannedMinutes > 0))
+      ? formatDuration(day.actualMinutes)
+      : '',
     planned: showTimes && day.plannedMinutes > 0 ? formatDuration(day.plannedMinutes) : '',
     diff: showTimes && (day.status === 'work' || day.plannedMinutes > 0) ? formatBalance(day.differenceMinutes) : '',
   };
@@ -87,7 +93,7 @@ export interface MonthlyReportProps {
 
 /** Arbeitszeitnachweis eines Monats. Layout ist in V1 fest definiert. */
 export function MonthlyReportPdf({ month, days, summary, balance, profile, createdOn }: MonthlyReportProps) {
-  // Nicht-Arbeitstage ohne Eintrag werden ausgelassen; Feiertage erscheinen als eigene Zeile ohne Zeiten.
+  // Nicht-Arbeitstage ohne Eintrag werden ausgelassen; Feiertage erscheinen wie Urlaub ohne Beginn/Ende.
   const rows = days.filter((d) => d.status !== 'off');
   const fullName = `${profile.firstName} ${profile.lastName}`;
 
@@ -114,7 +120,7 @@ export function MonthlyReportPdf({ month, days, summary, balance, profile, creat
           </View>
           {rows.map((day) => {
             const cells = toCells(day, profile.trackingStartDate);
-            const muted = day.status === 'holiday' || day.status === 'empty';
+            const muted = day.status === 'empty';
             return (
               <View key={day.date} style={s.row} wrap={false}>
                 {COLUMNS.map((c) => (
@@ -140,6 +146,7 @@ export function MonthlyReportPdf({ month, days, summary, balance, profile, creat
           <View style={s.summaryCol}>
             <Text style={s.sectionTitle}>Abwesenheiten</Text>
             <SummaryRow label="Urlaub" value={formatDayCount(summary.vacationDays)} />
+            <SummaryRow label="Überstunden frei" value={formatDayCount(summary.overtimeOffDays)} />
             <SummaryRow label="Krankheit" value={formatDayCount(summary.sickDays)} />
             <SummaryRow label="Feiertage" value={formatDayCount(summary.holidayDays)} />
           </View>

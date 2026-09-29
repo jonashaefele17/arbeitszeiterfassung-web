@@ -6,7 +6,7 @@ import { resolveDay } from './resolveDay';
 import { balanceForMonth, summarizeMonth, vacationAccount } from './summary';
 import { actualMinutesOf } from './time';
 import { analyzeAbsence, workTemplateFor } from '../services/dayService';
-import { formatBalance, formatDuration } from '../../utils/format';
+import { formatBalance, formatBalanceInput, formatDuration, formatDurationShort } from '../../utils/format';
 
 const day = (start: string, end: string, breakMinutes: number) => ({ isWorkDay: true, start, end, breakMinutes });
 const off = { isWorkDay: false, start: '08:00', end: '14:00', breakMinutes: 30 };
@@ -72,13 +72,28 @@ describe('Feiertage Bayern', () => {
 describe('Zeitberechnung', () => {
   it('rundet nicht', () => {
     expect(actualMinutesOf({ start: '08:07', end: '14:19', breakMinutes: 27 })).toBe(345);
-    expect(formatDuration(345)).toBe('5:45 h');
+    expect(formatDuration(345)).toBe('5,75 h');
+  });
+
+  it('zeigt errechnete Zeiten als Dezimalstunden', () => {
+    expect(formatDuration(210)).toBe('3,5 h');
+    expect(formatDuration(330)).toBe('5,5 h');
+    expect(formatDuration(360)).toBe('6 h');
+    expect(formatDuration(349)).toBe('5,82 h'); // Anzeige auf zwei Stellen
+    expect(formatDuration(0)).toBe('0 h');
+    expect(formatDurationShort(-90)).toBe('-1,5');
   });
 
   it('formatiert Salden mit Vorzeichen', () => {
-    expect(formatBalance(330)).toBe('+05:30 h');
-    expect(formatBalance(-225)).toBe('-03:45 h');
-    expect(formatBalance(0)).toBe('+00:00 h');
+    expect(formatBalance(330)).toBe('+5,5 h');
+    expect(formatBalance(-225)).toBe('-3,75 h');
+    expect(formatBalance(0)).toBe('0 h');
+    expect(formatBalance(9000)).toBe('+150 h');
+  });
+
+  it('zeigt den Startsaldo im Eingabeformat', () => {
+    expect(formatBalanceInput(330)).toBe('+05:30 h');
+    expect(formatBalanceInput(-225)).toBe('-03:45 h');
   });
 });
 
@@ -130,10 +145,31 @@ describe('resolveDay', () => {
     expect(vacationAccount(2026, 30, c).taken).toBe(3);
   });
 
-  it('Arbeit an einem Feiertag überschreibt ihn', () => {
-    const c = ctx({ workDays: [work('2026-06-04', '08:00', '12:00', 0, 0)] }, '2026-06-30');
-    expect(resolveDay('2026-06-04', c).status).toBe('work');
-    expect(resolveDay('2026-06-04', c).differenceMinutes).toBe(240);
+  it('Feiertag an einem regulären Tag ist ein bezahlter Tag', () => {
+    const c = ctx({}, '2026-06-30');
+    const r = resolveDay('2026-06-04', c); // Fronleichnam, Donnerstag
+    expect(r.status).toBe('holiday');
+    expect(r.plannedMinutes).toBe(330);
+    expect(r.actualMinutes).toBe(330);
+    expect(r.differenceMinutes).toBe(0);
+  });
+
+  it('Feiertag an einem Nicht-Arbeitstag zählt 0', () => {
+    const c = ctx({ customHolidays: [{ id: 'h', date: '2026-09-16' }] }); // Mittwoch frei
+    const r = resolveDay('2026-09-16', c);
+    expect(r.status).toBe('holiday');
+    expect(r.plannedMinutes).toBe(0);
+    expect(r.actualMinutes).toBe(0);
+  });
+
+  it('Arbeit an einem Feiertag ersetzt ihn und läuft gegen die reguläre Sollzeit', () => {
+    const c = ctx({}, '2026-06-30');
+    const planned = workTemplateFor('2026-06-04', c).plannedMinutes;
+    const withWork = ctx({ workDays: [work('2026-06-04', '08:00', '12:00', 0, planned)] }, '2026-06-30');
+    const r = resolveDay('2026-06-04', withWork);
+    expect(r.status).toBe('work');
+    expect(r.plannedMinutes).toBe(330);
+    expect(r.differenceMinutes).toBe(-90);
   });
 
   it('leere Tage zählen nur zwischen Kontostart und heute', () => {
@@ -164,11 +200,22 @@ describe('Monat und Überstundenkonto', () => {
     );
     // Alle regulären Tage im Dezember leer → nur Minus
     const dec = summarizeMonth({ year: 2026, month: 12 }, c);
-    // Dezember 2026: Mo/Di/Do/Fr-Tage minus Feiertage 25./26.12. (Fr/Sa)
-    expect(dec.balanceMinutes).toBe(-dec.plannedMinutes);
+    // Leere Tage erzeugen Minus, der bezahlte Feiertag 25.12. (Fr) nicht. Der 26.12. ist ein Samstag.
+    expect(dec.balanceMinutes).toBe(-(dec.plannedMinutes - 330));
     const jan = balanceForMonth({ year: 2027, month: 1 }, c);
     expect(jan.previousMinutes).toBe(60 + dec.balanceMinutes);
     expect(jan.currentMinutes).toBe(jan.previousMinutes + jan.monthMinutes);
+  });
+
+  it('Feiertage sind in Soll- und Arbeitszeit des Monats enthalten', () => {
+    const c = ctx(
+      { profile: { trackingStartDate: '2026-06-01', initialBalanceMinutes: 0 }, scheduleVersions: [version('2026-06-01')] },
+      '2026-06-30',
+    );
+    const s = summarizeMonth({ year: 2026, month: 6 }, c);
+    expect(s.holidayDays).toBe(1); // Fronleichnam 04.06.
+    expect(s.actualMinutes).toBe(330);
+    expect(s.balanceMinutes).toBe(-(s.plannedMinutes - 330));
   });
 
   it('summiert Tage exakt ohne Rundung', () => {
@@ -202,9 +249,9 @@ describe('Konflikte', () => {
     expect(a.notes.length).toBe(1);
   });
 
-  it('Vorlage an Feiertagen hat Sollzeit 0', () => {
+  it('Vorlage an Feiertagen übernimmt die reguläre Sollzeit', () => {
     const c = ctx();
-    expect(workTemplateFor('2026-06-04', c).plannedMinutes).toBe(0);
+    expect(workTemplateFor('2026-06-04', c).plannedMinutes).toBe(330);
     expect(workTemplateFor('2026-09-28', c).plannedMinutes).toBe(330);
   });
 });
@@ -227,5 +274,150 @@ describe('Zeitraum bearbeiten', () => {
     );
     expect(a.conflictingWorkDays.map((w) => w.date)).toEqual(['2026-09-21']);
     expect(a.effectiveDays).toBe(4); // 14, 17, 18, 21 (15 Ausnahme, 16 frei)
+  });
+});
+
+describe('Überstunden frei', () => {
+  const overtime = [{ id: 'o', startDate: '2026-09-14', endDate: '2026-09-18', kind: 'overtime' as const }];
+
+  it('erzeugt Soll ohne Ist und verbraucht keinen Urlaub', () => {
+    const c = ctx({ vacationPeriods: overtime });
+    const r = resolveDay('2026-09-14', c);
+    expect(r.status).toBe('overtimeOff');
+    expect(r.plannedMinutes).toBe(330);
+    expect(r.actualMinutes).toBe(0);
+    expect(r.differenceMinutes).toBe(-330);
+    expect(resolveDay('2026-09-16', c).status).toBe('off'); // Mittwoch frei
+    expect(vacationAccount(2026, 30, c).taken).toBe(0);
+  });
+
+  it('wirkt auf den Saldo wie ein nicht eingetragener Tag', () => {
+    const withOvertime = summarizeMonth({ year: 2026, month: 9 }, ctx({ vacationPeriods: overtime }));
+    const empty = summarizeMonth({ year: 2026, month: 9 }, ctx());
+    expect(withOvertime.balanceMinutes).toBe(empty.balanceMinutes);
+    expect(withOvertime.overtimeOffDays).toBe(4);
+  });
+
+  it('Feiertag und Krankheit haben Vorrang', () => {
+    const c = ctx(
+      {
+        vacationPeriods: [{ id: 'o', startDate: '2026-06-01', endDate: '2026-06-05', kind: 'overtime' }],
+        sickPeriods: [{ id: 's', startDate: '2026-06-05', endDate: '2026-06-05' }],
+        scheduleVersions: [version('2026-06-01')],
+        profile: { trackingStartDate: '2026-06-01', initialBalanceMinutes: 0 },
+      },
+      '2026-06-30',
+    );
+    expect(resolveDay('2026-06-04', c).status).toBe('holiday'); // Fronleichnam
+    expect(resolveDay('2026-06-05', c).status).toBe('sick');
+  });
+
+  it('analyzeAbsence zählt die freien Tage', () => {
+    const a = analyzeAbsence(
+      { kind: 'vacation', vacationKind: 'overtime', startDate: '2026-09-14', endDate: '2026-09-18' },
+      ctx(),
+    );
+    expect(a.effectiveDays).toBe(4);
+  });
+});
+
+describe('Nicht eingetragene Tage', () => {
+  it('markiert nur vergangene leere Arbeitstage ab Kontostart', () => {
+    const c = ctx({ profile: { trackingStartDate: '2026-09-15', initialBalanceMinutes: 0 } }, '2026-09-22');
+    expect(resolveDay('2026-09-14', c).isMissing).toBe(false); // vor Kontostart
+    expect(resolveDay('2026-09-15', c).isMissing).toBe(true);
+    expect(resolveDay('2026-09-16', c).isMissing).toBe(false); // Mittwoch frei
+    expect(resolveDay('2026-09-22', c).isMissing).toBe(false); // heute
+    expect(resolveDay('2026-09-24', c).isMissing).toBe(false); // Zukunft
+    expect(summarizeMonth({ year: 2026, month: 9 }, c).missingDays).toBe(4); // 15, 17, 18, 21
+  });
+
+  it('eingetragene Tage gelten nicht als fehlend', () => {
+    const c = ctx({ workDays: [work('2026-09-15', '08:00', '14:00', 30)] }, '2026-09-22');
+    expect(resolveDay('2026-09-15', c).isMissing).toBe(false);
+  });
+});
+
+describe('Urlaubskonto und Jahreswechsel', () => {
+  const raw = (extra: Partial<RawData> = {}) => ({
+    profile: { trackingStartDate: '2026-09-15', initialBalanceMinutes: 0, initialVacationTakenDays: 12 },
+    scheduleVersions: [version('2026-01-01')],
+    ...extra,
+  });
+
+  it('zieht die vor dem Kontostart genommenen Tage im Startjahr ab', () => {
+    const c = ctx(raw({ vacationPeriods: [{ id: 'v', startDate: '2026-09-21', endDate: '2026-09-22' }] }));
+    expect(vacationAccount(2026, 30, c)).toMatchObject({ taken: 14, remaining: 16 });
+  });
+
+  it('zählt in der App eingetragenen Urlaub vor dem Kontostart nicht doppelt', () => {
+    const c = ctx(raw({ vacationPeriods: [{ id: 'v', startDate: '2026-08-03', endDate: '2026-08-04' }] }));
+    expect(vacationAccount(2026, 30, c).taken).toBe(12);
+  });
+
+  it('überträgt Resturlaub ins Folgejahr', () => {
+    const c = ctx(raw({ vacationPeriods: [{ id: 'v', startDate: '2027-01-11', endDate: '2027-01-12' }] }), '2027-02-01');
+    // 2026: 30 − 12 = 18 Rest → 2027: 30 + 18 − 2 = 46
+    expect(vacationAccount(2027, 30, c)).toMatchObject({ carryover: 18, taken: 2, remaining: 46 });
+  });
+
+  it('berücksichtigt den Resturlaub aus dem Vorjahr des Kontostarts', () => {
+    const c = ctx({
+      profile: { trackingStartDate: '2026-09-15', initialBalanceMinutes: 0, initialVacationTakenDays: 12, initialVacationCarryoverDays: 4 },
+      scheduleVersions: [version('2026-01-01')],
+    });
+    expect(vacationAccount(2026, 30, c)).toMatchObject({ carryover: 4, taken: 12, remaining: 22 });
+    expect(vacationAccount(2027, 30, c)).toMatchObject({ carryover: 22, remaining: 52 });
+  });
+
+  it('überträgt kein Minus', () => {
+    const c = ctx({
+      profile: { trackingStartDate: '2026-09-15', initialBalanceMinutes: 0, initialVacationTakenDays: 35 },
+      scheduleVersions: [version('2026-01-01')],
+    });
+    expect(vacationAccount(2026, 30, c).remaining).toBe(-5);
+    expect(vacationAccount(2027, 30, c)).toMatchObject({ carryover: 0, remaining: 30 });
+  });
+
+  it('vor dem Startjahr gibt es keinen Übertrag', () => {
+    expect(vacationAccount(2025, 30, ctx(raw())).carryover).toBe(0);
+  });
+
+  it('alte Profile ohne Angabe zählen 0', () => {
+    const c = ctx({ profile: { trackingStartDate: '2026-09-01', initialBalanceMinutes: 0 } });
+    expect(vacationAccount(2026, 30, c).taken).toBe(0);
+  });
+});
+
+describe('Code-Review-Fixes', () => {
+  it('Überstunden frei in der Zukunft zieht erst ab dem Tag selbst ab', () => {
+    const overtime = [{ id: 'o', startDate: '2026-09-28', endDate: '2026-10-02', kind: 'overtime' as const }];
+    const before = ctx({ vacationPeriods: overtime }, '2026-09-22');
+    const r = resolveDay('2026-09-28', before);
+    expect(r.status).toBe('overtimeOff');
+    expect(r.differenceMinutes).toBe(0);
+    expect(balanceForMonth({ year: 2026, month: 9 }, before).currentMinutes).toBe(
+      balanceForMonth({ year: 2026, month: 9 }, ctx({}, '2026-09-22')).currentMinutes,
+    );
+    const onTheDay = ctx({ vacationPeriods: overtime }, '2026-09-28');
+    expect(resolveDay('2026-09-28', onTheDay).differenceMinutes).toBe(-330);
+  });
+
+  it('Urlaubs-Startwerte bleiben in ihrem Jahr, wenn der Kontostart verschoben wird', () => {
+    const c = ctx(
+      {
+        profile: {
+          trackingStartDate: '2025-12-01', // nachträglich ins Vorjahr verschoben
+          initialBalanceMinutes: 0,
+          initialVacationAsOf: '2026-09-15', // Onboarding-Datum
+          initialVacationTakenDays: 12,
+          initialVacationCarryoverDays: 4,
+        },
+        scheduleVersions: [version('2025-01-01')],
+      },
+      '2026-09-30',
+    );
+    expect(vacationAccount(2025, 30, c)).toMatchObject({ carryover: 0, taken: 0 });
+    expect(vacationAccount(2026, 30, c)).toMatchObject({ carryover: 4, taken: 12, remaining: 22 });
   });
 });

@@ -22,7 +22,11 @@ export function holidayOf(date: ISODate, ctx: CalculationContext): ResolvedDay['
  * Löst den Status eines Tages (Montag–Freitag) auf.
  *
  * Priorität: Expliziter WorkDay > Feiertag (gesetzlich/manuell) > Krank > Urlaub > leer.
- * Urlaub und Krankheit gelten nur an regulären Arbeitstagen.
+ * Feiertage, Urlaub und Krankheit sind bezahlte Tage: Soll = Ist = reguläre Sollzeit (an Nicht-Regeltagen 0).
+ * Arbeit an einem Feiertag ersetzt ihn und läuft gegen die reguläre Sollzeit.
+ * „Überstunden frei“ (Urlaubszeitraum mit kind 'overtime') erzeugt Soll ohne Ist, also Minusstunden –
+ * wie ein leerer Tag erst ab dem Tag selbst (nicht im Voraus) und nur ab Kontostart.
+ * Urlaub, Überstunden frei und Krankheit gelten nur an regulären Arbeitstagen.
  * Leere reguläre Arbeitstage erzeugen Soll nur zwischen Kontostart und heute.
  */
 export function resolveDay(date: ISODate, ctx: CalculationContext): ResolvedDay {
@@ -36,6 +40,7 @@ export function resolveDay(date: ISODate, ctx: CalculationContext): ResolvedDay 
     date,
     regularPlannedMinutes: regularPlanned,
     isRegularWorkDay: regular,
+    isMissing: false,
     holiday,
     vacationPeriod,
     sickPeriod,
@@ -55,11 +60,18 @@ export function resolveDay(date: ISODate, ctx: CalculationContext): ResolvedDay 
   }
 
   if (holiday) {
-    return { ...base, status: 'holiday', plannedMinutes: 0, actualMinutes: 0, differenceMinutes: 0 };
+    return { ...base, status: 'holiday', plannedMinutes: regularPlanned, actualMinutes: regularPlanned, differenceMinutes: 0 };
   }
 
   if (regular && sickPeriod) {
     return { ...base, status: 'sick', plannedMinutes: regularPlanned, actualMinutes: regularPlanned, differenceMinutes: 0 };
+  }
+
+  const countsAsDue = ctx.trackingStartDate <= date && date <= ctx.today;
+
+  if (regular && vacationPeriod?.kind === 'overtime') {
+    const planned = countsAsDue ? regularPlanned : 0;
+    return { ...base, status: 'overtimeOff', plannedMinutes: planned, actualMinutes: 0, differenceMinutes: -planned || 0 };
   }
 
   if (regular && vacationPeriod) {
@@ -67,9 +79,9 @@ export function resolveDay(date: ISODate, ctx: CalculationContext): ResolvedDay 
   }
 
   if (regular) {
-    const counts = ctx.trackingStartDate <= date && date <= ctx.today;
-    const planned = counts ? regularPlanned : 0;
-    return { ...base, status: 'empty', plannedMinutes: planned, actualMinutes: 0, differenceMinutes: -planned };
+    const planned = countsAsDue ? regularPlanned : 0;
+    const isMissing = ctx.trackingStartDate <= date && date < ctx.today;
+    return { ...base, status: 'empty', isMissing, plannedMinutes: planned, actualMinutes: 0, differenceMinutes: -planned || 0 };
   }
 
   return { ...base, status: 'off', plannedMinutes: 0, actualMinutes: 0, differenceMinutes: 0 };

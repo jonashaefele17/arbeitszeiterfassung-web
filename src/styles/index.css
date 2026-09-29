@@ -17,6 +17,11 @@
   --color-fill: #efeff2;
   --color-danger: #c62828;
 
+  /* Warnung: vergangener, nicht eingetragener Tag */
+  --color-warn: #e9c24a;
+  --color-warn-soft: #fff6d1;
+  --color-warn-ink: #7a5b00;
+
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 

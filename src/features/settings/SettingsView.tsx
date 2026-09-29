@@ -14,7 +14,7 @@ import { repositories } from '../../data/repositories';
 import { useToastStore } from '../../stores/toastStore';
 import { WEEKDAY_KEYS, WEEKDAY_LABELS, formatShortDate, type WeekdayKey } from '../../utils/date';
 import { runSafely } from '../../utils/errors';
-import { formatBalance, formatDayCount, formatDuration } from '../../utils/format';
+import { formatBalanceInput, formatDayCount, formatDuration } from '../../utils/format';
 import { ScheduleDayFields, isScheduleDayValid } from '../schedule/ScheduleDayFields';
 
 const VACATION_VALUES = range(0, 60);
@@ -26,16 +26,25 @@ async function updateProfile(changes: Partial<Omit<UserProfile, 'id'>>) {
 
 export function SettingsView() {
   const { profile, ctx } = useReadyData();
-  const [picker, setPicker] = useState<'vacation' | 'balance' | 'start' | null>(null);
+  const [picker, setPicker] = useState<'vacation' | 'vacationCarryover' | 'vacationTaken' | 'balance' | 'start' | null>(null);
   const [editingDay, setEditingDay] = useState<WeekdayKey | null>(null);
   const [vacationDraft, setVacationDraft] = useState(profile.vacationDaysPerYear);
+  const initialTaken = profile.initialVacationTakenDays ?? 0;
+  const [takenDraft, setTakenDraft] = useState(initialTaken);
+  const initialCarryover = profile.initialVacationCarryoverDays ?? 0;
+  const [carryoverDraft, setCarryoverDraft] = useState(initialCarryover);
   const [balanceDraft, setBalanceDraft] = useState(profile.initialBalanceMinutes);
   const [startDraft, setStartDraft] = useState(profile.trackingStartDate);
 
+  // Bezugsjahr der Urlaubs-Startwerte: Stichtag des Onboardings, unabhängig vom späteren Kontostart.
+  const vacationAsOf = profile.initialVacationAsOf ?? profile.trackingStartDate;
+  const startYear = vacationAsOf.slice(0, 4);
   const schedule = scheduleVersionFor(ctx.today, ctx.scheduleVersions)?.schedule;
 
-  const openPicker = (p: 'vacation' | 'balance' | 'start') => {
+  const openPicker = (p: 'vacation' | 'vacationCarryover' | 'vacationTaken' | 'balance' | 'start') => {
     setVacationDraft(profile.vacationDaysPerYear);
+    setTakenDraft(initialTaken);
+    setCarryoverDraft(initialCarryover);
     setBalanceDraft(profile.initialBalanceMinutes);
     setStartDraft(profile.trackingStartDate);
     setPicker(p);
@@ -46,11 +55,21 @@ export function SettingsView() {
     if (picker === 'vacation' && vacationDraft !== profile.vacationDaysPerYear) {
       void updateProfile({ vacationDaysPerYear: vacationDraft });
     }
+    if (picker === 'vacationCarryover' && carryoverDraft !== initialCarryover) {
+      void updateProfile({ initialVacationCarryoverDays: carryoverDraft });
+    }
+    if (picker === 'vacationTaken' && takenDraft !== initialTaken) {
+      void updateProfile({ initialVacationTakenDays: takenDraft });
+    }
     if (picker === 'balance' && balanceDraft !== profile.initialBalanceMinutes) {
       void updateProfile({ initialBalanceMinutes: balanceDraft });
     }
     if (picker === 'start' && startDraft !== profile.trackingStartDate) {
-      void updateProfile({ trackingStartDate: startDraft });
+      // Alte Profile ohne Stichtag: bisherigen Stichtag festhalten, damit die Urlaubs-Startwerte im Jahr bleiben.
+      void updateProfile({
+        trackingStartDate: startDraft,
+        ...(profile.initialVacationAsOf ? {} : { initialVacationAsOf: profile.trackingStartDate }),
+      });
     }
     setPicker(null);
   };
@@ -62,14 +81,6 @@ export function SettingsView() {
       <Section title="Profil">
         <NameField label="Vorname" value={profile.firstName} onSave={(firstName) => updateProfile({ firstName })} />
         <NameField label="Nachname" value={profile.lastName} onSave={(lastName) => updateProfile({ lastName })} />
-      </Section>
-
-      <Section title="Urlaub">
-        <ValueRow
-          label="Urlaubstage pro Jahr"
-          value={formatDayCount(profile.vacationDaysPerYear)}
-          onClick={() => openPicker('vacation')}
-        />
       </Section>
 
       <Section
@@ -88,13 +99,34 @@ export function SettingsView() {
       </Section>
 
       <Section
+        title="Urlaub"
+        footer={`Übrige Urlaubstage werden automatisch ins nächste Jahr übertragen. „Bereits genommen“ sind deine Urlaubstage ${startYear} vor dem ${formatShortDate(vacationAsOf)}.`}
+      >
+        <ValueRow
+          label="Urlaubstage pro Jahr"
+          value={formatDayCount(profile.vacationDaysPerYear)}
+          onClick={() => openPicker('vacation')}
+        />
+        <ValueRow
+          label={`Resturlaub aus ${Number(startYear) - 1}`}
+          value={formatDayCount(initialCarryover)}
+          onClick={() => openPicker('vacationCarryover')}
+        />
+        <ValueRow
+          label="Bereits genommen"
+          value={formatDayCount(initialTaken)}
+          onClick={() => openPicker('vacationTaken')}
+        />
+      </Section>
+
+      <Section
         title="Überstundenkonto"
         footer="Ab dem Kontostart zählen nicht erfasste Arbeitstage als Minusstunden. Der Startsaldo ist dein Stand zu Beginn."
       >
         <ValueRow label="Kontostart" value={formatShortDate(profile.trackingStartDate)} onClick={() => openPicker('start')} />
         <ValueRow
           label="Startsaldo"
-          value={formatBalance(profile.initialBalanceMinutes)}
+          value={formatBalanceInput(profile.initialBalanceMinutes)}
           onClick={() => openPicker('balance')}
         />
       </Section>
@@ -106,6 +138,24 @@ export function SettingsView() {
         values={VACATION_VALUES}
         format={(v) => formatDayCount(v)}
         onChange={setVacationDraft}
+        onClose={closePicker}
+      />
+      <NumberPickerSheet
+        open={picker === 'vacationCarryover'}
+        title={`Resturlaub aus ${Number(startYear) - 1}`}
+        value={carryoverDraft}
+        values={VACATION_VALUES}
+        format={(v) => formatDayCount(v)}
+        onChange={setCarryoverDraft}
+        onClose={closePicker}
+      />
+      <NumberPickerSheet
+        open={picker === 'vacationTaken'}
+        title={`Bereits genommen (${startYear})`}
+        value={takenDraft}
+        values={VACATION_VALUES}
+        format={(v) => formatDayCount(v)}
+        onChange={setTakenDraft}
         onClose={closePicker}
       />
       <BalancePickerSheet open={picker === 'balance'} value={balanceDraft} onChange={setBalanceDraft} onClose={closePicker} />

@@ -1,7 +1,7 @@
-import type { DatePeriod, ResolvedDay, WorkDay } from '../models';
+import type { DatePeriod, DayStatus, ResolvedDay, VacationPeriod, WorkDay } from '../models';
 import { eachWorkWeekDay, type ISODate } from '../../utils/date';
 import type { CalculationContext } from '../calculations/context';
-import { holidayOf, resolveDay } from '../calculations/resolveDay';
+import { resolveDay } from '../calculations/resolveDay';
 import type { TimeRange } from '../calculations/time';
 import { isRegularWorkDay, regularPlannedMinutes, scheduleDayFor } from './scheduleService';
 
@@ -11,7 +11,8 @@ const FALLBACK_TEMPLATE: TimeRange = { start: '08:00', end: '12:00', breakMinute
 
 /**
  * Vorlage beim erstmaligen Erfassen von Arbeit.
- * Die Sollzeit wird beim Speichern eingefroren: an Feiertagen und Nicht-Arbeitstagen ist sie 0.
+ * Die Sollzeit wird beim Speichern eingefroren: die reguläre Sollzeit (auch an Feiertagen, die Arbeit
+ * ersetzt den Feiertag), an Nicht-Arbeitstagen 0.
  */
 export function workTemplateFor(
   date: ISODate,
@@ -25,7 +26,7 @@ export function workTemplateFor(
 }
 
 export function plannedMinutesForNewWorkDay(date: ISODate, ctx: CalculationContext): number {
-  return holidayOf(date, ctx) ? 0 : regularPlannedMinutes(date, ctx.scheduleVersions);
+  return regularPlannedMinutes(date, ctx.scheduleVersions);
 }
 
 export interface AbsencePlan {
@@ -39,7 +40,20 @@ export interface AbsencePlan {
    * und bleiben erhalten – sie gelten nicht als Konflikt.
    */
   existingRange?: { startDate: ISODate; endDate: ISODate };
+  /** Nur bei `kind: 'vacation'`: `'overtime'` = frei auf Überstunden statt Urlaub. */
+  vacationKind?: 'overtime';
 }
+
+/** Status, den ein Tag durch diesen Eintrag erhält. */
+function targetStatus(plan: Pick<AbsencePlan, 'kind' | 'vacationKind'>): DayStatus {
+  return plan.kind === 'vacation' && plan.vacationKind === 'overtime' ? 'overtimeOff' : plan.kind;
+}
+
+const DAY_NOUN: Partial<Record<DayStatus, string>> = {
+  vacation: 'Urlaubstag',
+  overtimeOff: 'Tag Überstunden frei',
+  sick: 'Krankheitstag',
+};
 
 export interface AbsenceAnalysis {
   /** Arbeitserfassungen, die durch den Eintrag ersetzt (gelöscht) würden. */
@@ -73,14 +87,15 @@ export function analyzeAbsence(plan: AbsencePlan, ctx: CalculationContext): Abse
 
   const simulated = applyPlan(plan, ctx, conflictingWorkDays);
   const after = days.map((d) => resolveDay(d, simulated));
-  const effectiveDays = after.filter((d) => d.status === plan.kind).length;
+  const target = targetStatus(plan);
+  const effectiveDays = after.filter((d) => d.status === target).length;
 
   const notes: string[] = [];
   if (plan.kind !== 'holiday') {
     const holidays = after.filter((d) => d.status === 'holiday' && d.isRegularWorkDay).length;
     if (holidays > 0) {
       notes.push(
-        `${plural(holidays, 'Feiertag liegt', 'Feiertage liegen')} im Zeitraum und ${holidays === 1 ? 'zählt' : 'zählen'} nicht als ${plan.kind === 'vacation' ? 'Urlaubstag' : 'Krankheitstag'}.`,
+        `${plural(holidays, 'Feiertag liegt', 'Feiertage liegen')} im Zeitraum und ${holidays === 1 ? 'zählt' : 'zählen'} nicht als ${DAY_NOUN[target]}.`,
       );
     }
   }
@@ -93,13 +108,16 @@ export function analyzeAbsence(plan: AbsencePlan, ctx: CalculationContext): Abse
     if (converted > 0) {
       notes.push(`${plural(converted, 'Urlaubstag wird', 'Urlaubstage werden')} dem Urlaubskonto gutgeschrieben.`);
     }
+    const fromOvertime = after.filter((d) => d.status === 'sick' && before.get(d.date)?.status === 'overtimeOff').length;
+    if (fromOvertime > 0) {
+      notes.push(`${plural(fromOvertime, 'Tag', 'Tage')} Überstunden frei ${fromOvertime === 1 ? 'wird' : 'werden'} stattdessen als Krankheit gezählt.`);
+    }
   }
   if (plan.kind === 'holiday') {
     const affected = after[0];
     const prior = before.get(plan.startDate);
-    if (affected && prior && (prior.status === 'vacation' || prior.status === 'sick')) {
-      notes.push(`Der Tag zählt dann nicht mehr als ${prior.status === 'vacation' ? 'Urlaubstag' : 'Krankheitstag'}.`);
-    }
+    const noun = prior ? DAY_NOUN[prior.status] : undefined;
+    if (affected && noun) notes.push(`Der Tag zählt dann nicht mehr als ${noun}.`);
   }
 
   return { conflictingWorkDays, effectiveDays, notes };
@@ -119,7 +137,8 @@ function applyPlan(
     return { ...ctx, workDays, customHolidays };
   }
 
-  const period: DatePeriod = { id: plan.existingId ?? 'planned', startDate: plan.startDate, endDate: plan.endDate };
+  const period: VacationPeriod = { id: plan.existingId ?? 'planned', startDate: plan.startDate, endDate: plan.endDate };
+  if (plan.kind === 'vacation' && plan.vacationKind) period.kind = plan.vacationKind;
   const replace = (list: DatePeriod[]) => [...list.filter((p) => p.id !== plan.existingId), period];
   return plan.kind === 'vacation'
     ? { ...ctx, workDays, vacationPeriods: replace(ctx.vacationPeriods) }
@@ -129,11 +148,12 @@ function applyPlan(
 /** Anzahl der Tage eines bestehenden Zeitraums, die aktuell diesen Status tragen. */
 export function effectiveDaysOfPeriod(
   kind: 'vacation' | 'sick',
-  period: DatePeriod,
+  period: VacationPeriod,
   ctx: CalculationContext,
 ): number {
+  const target = targetStatus({ kind, vacationKind: period.kind });
   return eachWorkWeekDay(period.startDate, period.endDate)
     .map((d) => resolveDay(d, ctx))
-    .filter((d) => d.status === kind && (kind === 'vacation' ? d.vacationPeriod : d.sickPeriod)?.id === period.id)
+    .filter((d) => d.status === target && (kind === 'vacation' ? d.vacationPeriod : d.sickPeriod)?.id === period.id)
     .length;
 }
