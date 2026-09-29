@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Bestätigen gesperrt, z. B. bis eine Eingabe passt. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -23,6 +25,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Abbrechen',
   destructive = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -77,7 +80,8 @@ export function ConfirmDialog({
               <Button
                 block
                 onClick={onConfirm}
-                className={destructive ? '!bg-danger' : ''}
+                disabled={confirmDisabled}
+                className={destructive && !confirmDisabled ? '!bg-danger' : ''}
               >
                 {confirmLabel}
               </Button>

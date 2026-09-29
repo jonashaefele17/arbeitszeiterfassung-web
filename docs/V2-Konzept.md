@@ -236,7 +236,7 @@ Ende-zu-Ende-Verschlüsselung wird bewusst **nicht** umgesetzt. Sie würde die C
 
 - **Nur das Nötigste speichern:** nur der Status „krank“, keine Diagnosen, keine Freitextfelder zu Krankheit.
 - **Datensparsam beim Konto:** Benutzername statt echter E-Mail-Adresse; keine Mails, kein Mailanbieter.
-- **Einwilligung:** beim ersten Login ein Einwilligungs-Haken, der Zeitpunkt wird in `profiles.health_data_consent_at` gespeichert.
+- **Einwilligung:** beim ersten Login ein Einwilligungs-Haken, der Zeitpunkt wird am Konto in `account_status.health_data_consent_at` gespeichert (umgesetzt in Etappe 6).
 - **Datenschutzerklärung** in der App: kurz, in einfacher Sprache.
 - **Betroffenenrechte:**
   - „Meine Daten exportieren“ (JSON)

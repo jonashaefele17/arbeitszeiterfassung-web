@@ -10,6 +10,8 @@ export type AuthState =
   | { status: 'signed-out' }
   /** Startpasswort muss ersetzt werden. */
   | { status: 'must-change-password'; user: AuthUser }
+  /** Einwilligung zur Speicherung von Krankheitstagen fehlt. */
+  | { status: 'needs-consent'; user: AuthUser }
   /** Auf dem Gerät liegen Daten eines anderen Kontos. */
   | { status: 'foreign-data'; user: AuthUser }
   | { status: 'signed-in'; user: AuthUser };
@@ -19,6 +21,10 @@ interface AuthStore {
   init: () => Promise<void>;
   signIn: (username: string, password: string) => Promise<void>;
   initialPasswordSet: () => Promise<void>;
+  /** Einwilligung erteilen und fortfahren. */
+  giveConsent: () => Promise<void>;
+  /** Konto samt aller Daten am Server und auf diesem Gerät endgültig löschen. */
+  deleteAccount: () => Promise<void>;
   discardForeignData: () => Promise<void>;
   /** Abmelden; `discardLocalData` entfernt alle Daten dieses Geräts (nur wenn gesichert oder bewusst verworfen). */
   signOut: (options?: { discardLocalData?: boolean }) => Promise<void>;
@@ -28,7 +34,7 @@ interface AuthStore {
 let resolveRun = 0;
 
 /**
- * Anmeldezustand der App. Reihenfolge: Sitzung → Startpasswort ersetzt? → gehören die
+ * Anmeldezustand der App. Reihenfolge: Sitzung → Startpasswort ersetzt? → Einwilligung? → gehören die
  * lokalen Daten zu diesem Konto? → angemeldet. Bestehende Gerätedaten ohne Zuordnung
  * (V1.1) werden beim ersten Login dem Konto zugeordnet.
  */
@@ -39,7 +45,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       if (run === resolveRun) set({ state });
     };
     if (!user) return apply({ status: 'signed-out' });
-    if (await authRepository.mustChangePassword(user.id)) return apply({ status: 'must-change-password', user });
+    const account = await authRepository.accountStatus(user.id);
+    if (account.mustChangePassword) return apply({ status: 'must-change-password', user });
+    if (!account.hasConsent) return apply({ status: 'needs-consent', user });
     const owner = await deviceRepository.getLocalOwner();
     if (owner && owner !== user.id && (await deviceRepository.hasLocalData())) {
       return apply({ status: 'foreign-data', user });
@@ -75,6 +83,22 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     initialPasswordSet: async () => {
       const current = get().state;
       if ('user' in current) await resolve(current.user);
+    },
+
+    giveConsent: async () => {
+      const current = get().state;
+      if (current.status !== 'needs-consent') return;
+      await authRepository.giveConsent(current.user.id);
+      await resolve(current.user);
+    },
+
+    deleteAccount: async () => {
+      const current = get().state;
+      if (!('user' in current)) return;
+      syncService.stop();
+      await authRepository.deleteAccount(current.user.id);
+      await deviceRepository.clearAll();
+      await resolve(null);
     },
 
     discardForeignData: async () => {

@@ -104,6 +104,22 @@ try {
   const afterRpc = await admin.from('account_status').select('must_change_password').eq('user_id', a.id).single();
   check('complete_password_change setzt das eigene Flag zurück', !rpc.error && afterRpc.data?.must_change_password === false, rpc.error?.message);
 
+  // --- Einwilligung & Konto löschen (Etappe 6) --------------------------------
+  const consent = await b.client.rpc('give_health_data_consent');
+  const consentRows = await admin.from('account_status').select('user_id, health_data_consent_at').in('user_id', [a.id, b.id]);
+  const byUser = new Map(consentRows.data?.map((r) => [r.user_id, r.health_data_consent_at]));
+  check('Einwilligung wird nur für das eigene Konto gespeichert', !consent.error && !!byUser.get(b.id) && !byUser.get(a.id), consent.error?.message);
+
+  await b.client.from('work_days').insert(workDay('2026-10-05'));
+  const del = await b.client.rpc('delete_own_account');
+  const bGone = await admin.auth.admin.getUserById(b.id);
+  const bData = await admin.from('work_days').select('id').eq('user_id', b.id);
+  const aData = await admin.from('work_days').select('id').eq('user_id', a.id);
+  check('Konto löschen entfernt das eigene Konto samt Daten', !del.error && !bGone.data?.user && bData.data?.length === 0, del.error?.message);
+  check('Konto löschen lässt andere Konten unberührt', (aData.data?.length ?? 0) > 0);
+  const anonDel = await appClient().rpc('delete_own_account');
+  check('Konto löschen ohne Anmeldung nicht möglich', !!anonDel.error);
+
   // --- Anonym -----------------------------------------------------------------
   const anon = await appClient().from('work_days').select('*');
   check('Ohne Anmeldung kein Zugriff', !!anon.error || anon.data.length === 0);

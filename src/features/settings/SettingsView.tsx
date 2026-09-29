@@ -16,6 +16,7 @@ import { WEEKDAY_KEYS, WEEKDAY_LABELS, formatShortDate, type WeekdayKey } from '
 import { runSafely } from '../../utils/errors';
 import { formatBalanceInput, formatDayCount, formatDuration } from '../../utils/format';
 import { AccountSection } from '../auth/AccountSection';
+import { PrivacySection } from '../privacy/PrivacySection';
 import { ScheduleDayFields, isScheduleDayValid } from '../schedule/ScheduleDayFields';
 import { SettingsSection } from './SettingsSection';
 import { SyncBadge } from '../sync/SyncBadge';
@@ -135,6 +136,8 @@ export function SettingsView() {
       </SettingsSection>
 
       <AccountSection />
+
+      <PrivacySection />
 
       <NumberPickerSheet
         open={picker === 'vacation'}

@@ -7,6 +7,7 @@ import { ForeignDataScreen, LoginScreen, NotConfiguredScreen, SetInitialPassword
 import { useAuthStore } from '../features/auth/authStore';
 import { DayEditorSheet } from '../features/day-editor/DayEditorSheet';
 import { ConflictBanner, ConflictSheet } from '../features/sync/ConflictSheet';
+import { ConsentScreen } from '../features/privacy/ConsentScreen';
 import { SyncGate } from '../features/sync/SyncGate';
 import { MonthView } from '../features/monthly/MonthView';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
@@ -45,6 +46,8 @@ function AuthGate() {
       return <LoginScreen />;
     case 'must-change-password':
       return <SetInitialPasswordScreen user={auth.user} />;
+    case 'needs-consent':
+      return <ConsentScreen user={auth.user} />;
     case 'foreign-data':
       return <ForeignDataScreen user={auth.user} />;
     case 'signed-in':

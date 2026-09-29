@@ -54,7 +54,22 @@ function toUser(user: { id: string; email?: string | null }): AuthUser {
   return { id: user.id, username: emailToUsername(user.email ?? '') };
 }
 
-const mustChangeCacheKey = (userId: string) => `arbeitszeit.mustChangePassword.${userId}`;
+export interface AccountStatus {
+  mustChangePassword: boolean;
+  hasConsent: boolean;
+}
+
+const DEFAULT_STATUS: AccountStatus = { mustChangePassword: false, hasConsent: false };
+const statusCacheKey = (userId: string) => `arbeitszeit.accountStatus.${userId}`;
+
+function cacheStatus(userId: string, patch: Partial<AccountStatus>): void {
+  try {
+    const current = JSON.parse(localStorage.getItem(statusCacheKey(userId)) ?? '{}') as Partial<AccountStatus>;
+    localStorage.setItem(statusCacheKey(userId), JSON.stringify({ ...current, ...patch }));
+  } catch {
+    // Speicher nicht verfügbar – der Status wird beim nächsten Online-Start neu geladen.
+  }
+}
 
 /** Bricht eine Anfrage nach `ms` ab, damit langsame Netze den App-Start nicht blockieren. */
 function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
@@ -118,23 +133,56 @@ export const authRepository = {
   },
 
   /**
-   * Muss das Startpasswort ersetzt werden? Online vom Server, offline aus dem letzten bekannten Stand.
+   * Kontostatus (Startpasswort aktiv? Einwilligung erteilt?). Online vom Server,
+   * offline aus dem letzten bekannten Stand – der App-Start wartet nie auf das Netz.
    */
-  async mustChangePassword(userId: string): Promise<boolean> {
-    const cached = () => localStorage.getItem(mustChangeCacheKey(userId)) === 'true';
+  async accountStatus(userId: string): Promise<AccountStatus> {
+    const cached = (): AccountStatus => {
+      try {
+        return { ...DEFAULT_STATUS, ...JSON.parse(localStorage.getItem(statusCacheKey(userId)) ?? '{}') };
+      } catch {
+        return DEFAULT_STATUS;
+      }
+    };
     // Offline nicht auf den Server warten (der Client wiederholt fehlgeschlagene Anfragen sonst mehrfach).
     if (!navigator.onLine) return cached();
     try {
       const { data, error } = await withTimeout(
-        client().from('account_status').select('must_change_password').maybeSingle(),
+        client().from('account_status').select('must_change_password, health_data_consent_at').maybeSingle(),
         3000,
       );
       if (error) throw error;
-      const value = data?.must_change_password ?? false;
-      localStorage.setItem(mustChangeCacheKey(userId), String(value));
-      return value;
+      const status: AccountStatus = {
+        mustChangePassword: data?.must_change_password ?? false,
+        hasConsent: !!data?.health_data_consent_at,
+      };
+      cacheStatus(userId, status);
+      return status;
     } catch {
       return cached();
+    }
+  },
+
+  /** Einwilligung zur Speicherung von Krankheitstagen erteilen (braucht Internet). */
+  async giveConsent(userId: string): Promise<void> {
+    try {
+      const { error } = await client().rpc('give_health_data_consent');
+      if (error) throw error;
+      cacheStatus(userId, { hasConsent: true });
+    } catch (error) {
+      throw toAuthError(error);
+    }
+  },
+
+  /** Eigenes Konto samt aller Daten am Server endgültig löschen (braucht Internet). */
+  async deleteAccount(userId: string): Promise<void> {
+    try {
+      const { error } = await client().rpc('delete_own_account');
+      if (error) throw error;
+      localStorage.removeItem(statusCacheKey(userId));
+      await client().auth.signOut({ scope: 'local' });
+    } catch (error) {
+      throw toAuthError(error);
     }
   },
 
@@ -145,7 +193,7 @@ export const authRepository = {
       if (error) throw error;
       const done = await client().rpc('complete_password_change');
       if (done.error) throw done.error;
-      localStorage.setItem(mustChangeCacheKey(userId), 'false');
+      cacheStatus(userId, { mustChangePassword: false });
     } catch (error) {
       throw toAuthError(error);
     }
