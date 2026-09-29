@@ -11,7 +11,8 @@
     "typecheck": "tsc -b --noEmit",
     "admin": "node --env-file=.env.local --env-file-if-exists=.env.admin.local scripts/admin/admin.mjs",
     "test:rls": "node --env-file=.env.local --env-file-if-exists=.env.admin.local scripts/admin/rls-test.mjs",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "backup": "node --env-file=.env.local --env-file-if-exists=.env.admin.local scripts/admin/backup.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

@@ -7,3 +7,6 @@ dev-dist
 
 # Local planning notes
 Master-Prompt*.md
+
+# Verschlüsselte Datenbank-Backups (enthalten Gesundheitsdaten)
+backups/

@@ -281,7 +281,7 @@ Jede Etappe ist einzeln lauffähig und testbar.
 | 4 | **Konflikte** | Konflikterkennung am Server, Konflikt-Dialog; Tests für gleichzeitiges Ändern, Löschen und doppelten Arbeitstag |
 | 5 | **Datenübernahme und Startablauf** (in Etappe 3 vorgezogen) | Übernahme bestehender V1.1-Daten, Onboarding für leere Konten, Abfrage bei vorhandenen Daten |
 | 6 | **Datenschutz-Funktionen** | Einwilligung, Datenschutzerklärung, Export, Konto löschen |
-| 7 | **Betrieb** | Keep-alive gegen Pausieren, verschlüsseltes Backup-Skript samt getesteter Wiederherstellung, Anleitung „Nutzer hinzufügen / Passwort zurücksetzen“, README |
+| 7 | **Betrieb** (umgesetzt, siehe `docs/Betrieb.md`) | Keep-alive gegen Pausieren, verschlüsseltes Backup-Skript samt getesteter Wiederherstellung, Anleitung „Nutzer hinzufügen / Passwort zurücksetzen“, README |
 
 ### Nicht Teil von V2
 
