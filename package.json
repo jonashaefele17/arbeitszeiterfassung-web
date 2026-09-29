@@ -8,10 +8,14 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "admin": "node --env-file=.env.local --env-file-if-exists=.env.admin.local scripts/admin/admin.mjs",
+    "test:rls": "node --env-file=.env.local --env-file-if-exists=.env.admin.local scripts/admin/rls-test.mjs",
+    "db:push": "supabase db push"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
+    "@supabase/supabase-js": "^2.117.2",
     "date-fns": "^4.4.0",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
@@ -27,6 +31,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "sharp": "^0.35.5",
+    "supabase": "^2.118.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
