@@ -6,7 +6,7 @@ import { buildTimesheet, splitHours, type SplitHours, type TimesheetRow } from '
 const INK = '#111114';
 const LABEL = '#55555C';
 const MUTED = '#8A8A8A';
-const RULE = '#9A9AA0';
+const RULE = INK;
 
 const COL = { date: '24%', hours: '22%', range: '30%', pause: '24%' } as const;
 
@@ -16,10 +16,10 @@ const s = StyleSheet.create({
   meta: { flexDirection: 'row', marginTop: 18, fontSize: 13 },
   metaLabel: { color: LABEL, width: 58 },
   table: { marginTop: 28 },
-  row: { flexDirection: 'row', minHeight: 22, borderBottomWidth: 0.75, borderBottomColor: RULE, borderBottomStyle: 'dashed' },
+  row: { flexDirection: 'row', minHeight: 22, borderBottomWidth: 0.5, borderBottomColor: RULE },
   head: { color: LABEL, fontSize: 12 },
   cell: { paddingHorizontal: 6, paddingTop: 7, paddingBottom: 3, flexDirection: 'row', alignItems: 'flex-end' },
-  divider: { borderLeftWidth: 0.75, borderLeftColor: RULE, borderLeftStyle: 'dashed' },
+  divider: { borderLeftWidth: 0.5, borderLeftColor: RULE },
   sumRow: { flexDirection: 'row', marginTop: 10, alignItems: 'center' },
   sumLabel: { color: LABEL, fontSize: 13 },
   sumBox: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 1.25, borderBottomColor: INK, fontFamily: 'Helvetica-Bold' },
