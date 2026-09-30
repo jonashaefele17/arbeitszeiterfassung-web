@@ -114,10 +114,10 @@ export function TimesheetPdf({ month, days, profile }: TimesheetProps) {
 
         <View style={s.table}>
           <View style={[s.row, s.head]} fixed>
-            <Text style={[s.cell, { width: COL.date }]}>Datum:</Text>
+            <Text style={[s.cell, { width: COL.date, textAlign: 'center' }]}>Datum:</Text>
             <Text style={[s.cell, s.divider, { width: COL.hours, textAlign: 'center' }]}>Stunden/ Minuten</Text>
-            <Text style={[s.cell, s.divider, { width: COL.range }]}>Von – bis</Text>
-            <Text style={[s.cell, s.divider, { width: COL.pause }]}>Pause</Text>
+            <Text style={[s.cell, s.divider, { width: COL.range, textAlign: 'center' }]}>Von – bis</Text>
+            <Text style={[s.cell, s.divider, { width: COL.pause, textAlign: 'center' }]}>Pause</Text>
           </View>
           {lines.map((line, i) =>
             line === 'gap' ? <EmptyRow key={`gap-${i}`} /> : <Row key={line.date} row={line} />,
