@@ -10,17 +10,18 @@ const RULE = INK;
 /** Breite von „10:00“ in Helvetica 11 pt (4 Ziffern à 6,12 pt + Doppelpunkt 3,06 pt). */
 const TIME_WIDTH = 27.6;
 
+// Maße so gewählt, dass auch der vollste Monat (23 Werktage + 4 Leerzeilen) auf eine A4-Seite passt.
 const COL = { date: '21%', hours: '25%', range: '30%', pause: '24%' } as const;
 
 const s = StyleSheet.create({
-  page: { paddingTop: 56, paddingBottom: 56, paddingLeft: 76, paddingRight: 48, fontSize: 11, color: INK, fontFamily: 'Helvetica' },
+  page: { paddingTop: 48, paddingBottom: 40, paddingLeft: 76, paddingRight: 48, fontSize: 11, color: INK, fontFamily: 'Helvetica' },
   title: { fontSize: 16, fontFamily: 'Helvetica-Bold' },
-  meta: { flexDirection: 'row', marginTop: 18, fontSize: 13 },
+  meta: { flexDirection: 'row', marginTop: 12, fontSize: 13 },
   metaLabel: { fontFamily: 'Helvetica-Bold', width: 62 },
-  table: { marginTop: 28, borderTopWidth: 0.5, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: RULE },
-  row: { flexDirection: 'row', minHeight: 22, borderBottomWidth: 0.5, borderBottomColor: RULE },
+  table: { marginTop: 20, borderTopWidth: 0.5, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: RULE },
+  row: { flexDirection: 'row', minHeight: 20, borderBottomWidth: 0.5, borderBottomColor: RULE },
   head: { fontFamily: 'Helvetica-Bold' },
-  cell: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 3, flexDirection: 'row', alignItems: 'flex-end' },
+  cell: { paddingHorizontal: 10, paddingTop: 5, paddingBottom: 2, flexDirection: 'row', alignItems: 'flex-end' },
   divider: { borderLeftWidth: 0.5, borderLeftColor: RULE },
   sumRow: { flexDirection: 'row', marginTop: 10, alignItems: 'center' },
   sumLabel: { fontFamily: 'Helvetica-Bold', fontSize: 13 },
