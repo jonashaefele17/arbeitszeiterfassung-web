@@ -4,10 +4,18 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { BREAK_VALUES, NumberPickerSheet, TimePickerSheet } from '../../components/ui/PickerSheets';
 import { Divider, ValueRow } from '../../components/ui/ValueRow';
-import { TIME_RANGE_ERROR_TEXT, actualMinutesOf, validateTimeRange, type TimeRange } from '../../domain/calculations/time';
+import {
+  TIME_RANGE_ERROR_TEXT,
+  actualMinutesOf,
+  changeRange,
+  validateTimeRange,
+  withFittingBreakStart,
+  type TimeRange,
+} from '../../domain/calculations/time';
 import type { ResolvedDay } from '../../domain/models';
 import { plannedMinutesForNewWorkDay, workTemplateFor } from '../../domain/services/dayService';
 import { formatBalance, formatBreak, formatDuration } from '../../utils/format';
+import { BreakStartRow } from '../schedule/BreakStartRow';
 import { deleteWorkDay, saveWorkDay } from './actions';
 
 type Picker = 'start' | 'end' | 'break' | null;
@@ -26,9 +34,18 @@ export function WorkEditor({ day, onDone }: WorkEditorProps) {
   const existing = day.workDay;
   const [draft, setDraft] = useState<TimeRange>(() =>
     existing
-      ? { start: existing.start, end: existing.end, breakMinutes: existing.breakMinutes }
+      ? // Ältere Einträge ohne Pausenbeginn bekommen einen Vorschlag (gespeichert erst mit „Speichern“).
+        withFittingBreakStart({
+          start: existing.start,
+          end: existing.end,
+          breakMinutes: existing.breakMinutes,
+          breakStart: existing.breakStart,
+        })
       : workTemplateFor(day.date, ctx),
   );
+  // Selbst gewählter Pausenbeginn wird bei Änderungen von Beginn/Ende nicht mehr verschoben.
+  const [breakPinned, setBreakPinned] = useState(() => !!existing?.breakStart);
+  const change = (patch: Partial<TimeRange>) => setDraft((d) => changeRange(d, patch, breakPinned));
   const [picker, setPicker] = useState<Picker>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,7 +58,8 @@ export function WorkEditor({ day, onDone }: WorkEditorProps) {
     existing !== undefined &&
     existing.start === draft.start &&
     existing.end === draft.end &&
-    existing.breakMinutes === draft.breakMinutes;
+    existing.breakMinutes === draft.breakMinutes &&
+    existing.breakStart === draft.breakStart;
 
   const save = async () => {
     if (error || busy) return;
@@ -61,9 +79,23 @@ export function WorkEditor({ day, onDone }: WorkEditorProps) {
     <div>
       <ValueRow label="Beginn" value={draft.start} onClick={() => setPicker('start')} />
       <Divider />
-      <ValueRow label="Ende" value={draft.end} onClick={() => setPicker('end')} invalid={!!error} />
+      <ValueRow
+        label="Ende"
+        value={draft.end}
+        onClick={() => setPicker('end')}
+        invalid={error === 'end-before-start' || error === 'break-too-long'}
+      />
       <Divider />
       <ValueRow label="Pause" value={formatBreak(draft.breakMinutes)} onClick={() => setPicker('break')} />
+      <BreakStartRow
+        breakMinutes={draft.breakMinutes}
+        breakStart={draft.breakStart}
+        invalid={error === 'break-outside'}
+        onChange={(breakStart) => {
+          setBreakPinned(true);
+          setDraft((d) => ({ ...d, breakStart }));
+        }}
+      />
       <Divider />
       <ValueRow label="Arbeitszeit" value={error ? '–' : formatDuration(actual)} emphasis />
 
@@ -92,14 +124,14 @@ export function WorkEditor({ day, onDone }: WorkEditorProps) {
         open={picker === 'start'}
         title="Beginn"
         value={draft.start}
-        onChange={(start) => setDraft((d) => ({ ...d, start }))}
+        onChange={(start) => change({ start })}
         onClose={() => setPicker(null)}
       />
       <TimePickerSheet
         open={picker === 'end'}
         title="Ende"
         value={draft.end}
-        onChange={(end) => setDraft((d) => ({ ...d, end }))}
+        onChange={(end) => change({ end })}
         onClose={() => setPicker(null)}
       />
       <NumberPickerSheet
@@ -108,7 +140,7 @@ export function WorkEditor({ day, onDone }: WorkEditorProps) {
         value={draft.breakMinutes}
         values={BREAK_VALUES}
         format={formatBreak}
-        onChange={(breakMinutes) => setDraft((d) => ({ ...d, breakMinutes }))}
+        onChange={(breakMinutes) => change({ breakMinutes })}
         onClose={() => setPicker(null)}
       />
       <ConfirmDialog

@@ -2,7 +2,7 @@ import type { DatePeriod, DayStatus, ResolvedDay, VacationPeriod, WorkDay } from
 import { eachWorkWeekDay, type ISODate } from '../../utils/date';
 import type { CalculationContext } from '../calculations/context';
 import { resolveDay } from '../calculations/resolveDay';
-import type { TimeRange } from '../calculations/time';
+import { withFittingBreakStart, type TimeRange } from '../calculations/time';
 import { isRegularWorkDay, regularPlannedMinutes, scheduleDayFor } from './scheduleService';
 
 export type AbsenceKind = 'vacation' | 'sick' | 'holiday';
@@ -20,9 +20,10 @@ export function workTemplateFor(
 ): TimeRange & { plannedMinutes: number } {
   const scheduleDay = scheduleDayFor(date, ctx.scheduleVersions);
   const range: TimeRange = scheduleDay?.isWorkDay
-    ? { start: scheduleDay.start, end: scheduleDay.end, breakMinutes: scheduleDay.breakMinutes }
+    ? { start: scheduleDay.start, end: scheduleDay.end, breakMinutes: scheduleDay.breakMinutes, breakStart: scheduleDay.breakStart }
     : FALLBACK_TEMPLATE;
-  return { ...range, plannedMinutes: plannedMinutesForNewWorkDay(date, ctx) };
+  // Pausenbeginn aus der Standardwoche, sonst passend vorgeschlagen.
+  return { ...withFittingBreakStart(range), plannedMinutes: plannedMinutesForNewWorkDay(date, ctx) };
 }
 
 export function plannedMinutesForNewWorkDay(date: ISODate, ctx: CalculationContext): number {

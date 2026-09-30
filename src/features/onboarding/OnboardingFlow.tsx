@@ -104,7 +104,8 @@ export function OnboardingFlow() {
             transition={transitions.standard}
             className="pt-10"
           >
-            <StepContent />
+            {/* Schritt als Prop: Beim Ausblenden zeigt der alte Schritt weiter seinen eigenen Inhalt. */}
+            <StepContent stepIndex={state.stepIndex} />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -118,9 +119,9 @@ export function OnboardingFlow() {
   );
 }
 
-function StepContent() {
+function StepContent({ stepIndex }: { stepIndex: number }) {
   const state = useOnboardingStore();
-  const step = ONBOARDING_STEPS[state.stepIndex]!;
+  const step = ONBOARDING_STEPS[stepIndex]!;
 
   switch (step.kind) {
     case 'firstName':

@@ -7,7 +7,7 @@ import { DatePickerSheet } from '../../components/ui/DatePickerSheet';
 import { BalancePickerSheet, NumberPickerSheet } from '../../components/ui/PickerSheets';
 import { ValueRow } from '../../components/ui/ValueRow';
 import { range } from '../../components/ui/WheelPicker';
-import { plannedMinutesOf } from '../../domain/calculations/time';
+import { plannedMinutesOf, withFittingBreakStart } from '../../domain/calculations/time';
 import type { UserProfile, WorkScheduleDay } from '../../domain/models';
 import { scheduleVersionFor } from '../../domain/services/scheduleService';
 import { repositories } from '../../data/repositories';
@@ -246,9 +246,11 @@ function ScheduleDayForm({
   initial: WorkScheduleDay;
   onSave: (day: WeekdayKey, value: WorkScheduleDay) => void | Promise<void>;
 }) {
-  const [value, setValue] = useState(initial);
+  // Ältere Standardwochen ohne Pausenbeginn zeigen einen Vorschlag (gespeichert erst mit „Speichern“).
+  const [baseline] = useState(() => (initial.isWorkDay ? { ...initial, ...withFittingBreakStart(initial) } : initial));
+  const [value, setValue] = useState(baseline);
   const [busy, setBusy] = useState(false);
-  const unchanged = JSON.stringify(value) === JSON.stringify(initial);
+  const unchanged = JSON.stringify(value) === JSON.stringify(baseline);
   return (
     <div className="pb-2">
       <h2 className="pb-4 pt-1 text-[28px] font-bold tracking-tight">{WEEKDAY_LABELS[day]}</h2>

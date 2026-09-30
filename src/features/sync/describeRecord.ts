@@ -1,4 +1,4 @@
-import { actualMinutesOf } from '../../domain/calculations/time';
+import { actualMinutesOf, formatBreakSpan } from '../../domain/calculations/time';
 import type {
   CustomHoliday,
   SickPeriod,
@@ -16,7 +16,7 @@ import {
   formatShortDate,
   formatWeekday,
 } from '../../utils/date';
-import { formatBalanceInput, formatBreak, formatDayCount, formatDuration } from '../../utils/format';
+import { formatBalanceInput, formatDayCount, formatDuration } from '../../utils/format';
 
 /** Überschrift eines Konflikts – aus dem vorhandenen Stand (lokal oder anderes Gerät). */
 export function conflictTitle(table: SyncTableName, record: object | undefined): string {
@@ -47,7 +47,7 @@ export function describeRecord(table: SyncTableName, record: object | undefined)
   switch (table) {
     case 'workDays': {
       const w = record as WorkDay;
-      return [`Arbeit · ${w.start}–${w.end}`, `Pause ${formatBreak(w.breakMinutes)} · ${formatDuration(actualMinutesOf(w))}`];
+      return [`Arbeit · ${w.start}–${w.end}`, `Pause ${formatBreakSpan(w)} · ${formatDuration(actualMinutesOf(w))}`];
     }
     case 'vacationPeriods':
     case 'sickPeriods': {

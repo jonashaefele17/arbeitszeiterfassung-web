@@ -98,6 +98,7 @@ const workDays: SyncTableSpec = {
       start_time: w.start,
       end_time: w.end,
       break_minutes: w.breakMinutes,
+      break_start: w.breakMinutes > 0 ? (w.breakStart ?? null) : null,
       planned_minutes: w.plannedMinutes,
     };
   },
@@ -108,6 +109,7 @@ const workDays: SyncTableSpec = {
     start: str(row.start_time),
     end: str(row.end_time),
     breakMinutes: num(row.break_minutes),
+    ...(row.break_start ? { breakStart: str(row.break_start) } : {}),
     plannedMinutes: num(row.planned_minutes),
   }),
   uniqueField: { local: 'date', remote: 'date' },

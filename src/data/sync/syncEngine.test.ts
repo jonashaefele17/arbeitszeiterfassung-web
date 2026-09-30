@@ -237,6 +237,15 @@ describe('Erster Abgleich', () => {
   });
 });
 
+it('Umwandlung Arbeitstag mit und ohne Pausenbeginn ist verlustfrei', () => {
+  const spec = SYNC_TABLE_BY_NAME.workDays;
+  const withBreak = { id: 'w', date: '2026-09-28', status: 'work' as const, start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '12:30', plannedMinutes: 330 };
+  expect(spec.fromRemote({ id: 'w', ...spec.toRemote(withBreak) })).toEqual(withBreak);
+  const { breakStart: _unused, ...old } = withBreak;
+  expect(spec.fromRemote({ id: 'w', ...spec.toRemote(old) })).toEqual(old);
+  expect(spec.toRemote({ ...withBreak, breakMinutes: 0 }).break_start).toBeNull();
+});
+
 it('Spezifikation: Umwandlung ist verlustfrei (lokal → Server → lokal)', () => {
   const spec = SYNC_TABLE_BY_NAME.vacationPeriods;
   const local = { id: 'v', startDate: '2026-09-01', endDate: '2026-09-05', kind: 'overtime' as const };

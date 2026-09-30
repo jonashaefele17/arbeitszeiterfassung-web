@@ -4,7 +4,7 @@ import { bavarianHolidays, easterSunday } from '../holidays/bavaria';
 import { buildContext, type RawData } from './context';
 import { resolveDay } from './resolveDay';
 import { balanceForMonth, summarizeMonth, vacationAccount } from './summary';
-import { actualMinutesOf } from './time';
+import { actualMinutesOf, breakEnd, changeRange, formatBreakSpan, suggestBreakStart, validateTimeRange } from './time';
 import { analyzeAbsence, workTemplateFor } from '../services/dayService';
 import { formatBalance, formatBalanceInput, formatDuration, formatDurationShort } from '../../utils/format';
 
@@ -419,5 +419,51 @@ describe('Code-Review-Fixes', () => {
     );
     expect(vacationAccount(2025, 30, c)).toMatchObject({ carryover: 0, taken: 0 });
     expect(vacationAccount(2026, 30, c)).toMatchObject({ carryover: 4, taken: 12, remaining: 22 });
+  });
+});
+
+describe('Pausenbeginn', () => {
+  it('schlägt die Pause mittig vor, auf 15 Minuten gerundet und innerhalb der Arbeitszeit', () => {
+    expect(suggestBreakStart('08:00', '14:00', 30)).toBe('10:45');
+    expect(suggestBreakStart('08:07', '14:19', 27)).toBe('11:00');
+    expect(suggestBreakStart('08:00', '08:40', 30)).toBe('08:00'); // begrenzt: nicht vor Beginn
+    expect(suggestBreakStart('08:00', '08:45', 30)).toBe('08:15'); // begrenzt: Pause endet spätestens mit Ende
+  });
+
+  it('berechnet das Pausenende und formatiert die Pause', () => {
+    expect(breakEnd('12:30', 30)).toBe('13:00');
+    expect(formatBreakSpan({ breakMinutes: 45, breakStart: '12:15' })).toBe('12:15–13:00');
+    expect(formatBreakSpan({ breakMinutes: 30 })).toBe('30 min'); // älterer Eintrag ohne Beginn
+    expect(formatBreakSpan({ breakMinutes: 0, breakStart: '12:00' })).toBe('0 min');
+  });
+
+  it('prüft, dass die Pause innerhalb der Arbeitszeit liegt', () => {
+    expect(validateTimeRange({ start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '12:00' })).toBeNull();
+    expect(validateTimeRange({ start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '13:45' })).toBe('break-outside');
+    expect(validateTimeRange({ start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '07:45' })).toBe('break-outside');
+    expect(validateTimeRange({ start: '08:00', end: '14:00', breakMinutes: 30 })).toBeNull(); // ohne Beginn: erlaubt
+  });
+
+  it('der Pausenbeginn ändert die Arbeitszeit nicht', () => {
+    const a = actualMinutesOf({ start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '09:00' });
+    const b = actualMinutesOf({ start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '12:30' });
+    expect(a).toBe(330);
+    expect(b).toBe(330);
+  });
+
+  it('Vorlage übernimmt den Pausenbeginn der Standardwoche, sonst Vorschlag', () => {
+    const withBreak: WorkSchedule = { ...schedule, monday: { ...day('08:00', '14:00', 30), breakStart: '12:30' } };
+    const c = ctx({ scheduleVersions: [version('2026-09-01', withBreak)] });
+    expect(workTemplateFor('2026-09-28', c).breakStart).toBe('12:30'); // Montag
+    expect(workTemplateFor('2026-09-29', c).breakStart).toBe('10:45'); // Dienstag ohne Angabe → Vorschlag
+    expect(workTemplateFor('2026-09-30', c).breakStart).toBeUndefined(); // Mittwoch frei → keine Pause
+  });
+
+  it('beim Bearbeiten: Pause 0 entfernt den Beginn, 0 → 30 min schlägt vor, nicht gewählter Beginn wandert mit', () => {
+    const base = { start: '08:00', end: '14:00', breakMinutes: 30, breakStart: '10:45' };
+    expect(changeRange(base, { breakMinutes: 0 }, false).breakStart).toBeUndefined();
+    expect(changeRange({ ...base, breakMinutes: 0, breakStart: undefined }, { breakMinutes: 30 }, false).breakStart).toBe('10:45');
+    expect(changeRange(base, { end: '10:00' }, false).breakStart).toBe('08:45'); // passt nicht mehr → neu vorgeschlagen
+    expect(changeRange({ ...base, breakStart: '12:00' }, { end: '11:00' }, true).breakStart).toBe('12:00'); // selbst gewählt → bleibt
   });
 });

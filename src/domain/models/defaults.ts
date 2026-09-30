@@ -5,6 +5,7 @@ export const DEFAULT_SCHEDULE_DAY: WorkScheduleDay = {
   start: '08:00',
   end: '14:00',
   breakMinutes: 30,
+  breakStart: '10:45',
 };
 
 export const DEFAULT_SCHEDULE: WorkSchedule = {

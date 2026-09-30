@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import type { WorkScheduleDay } from '../../domain/models';
-import { TIME_RANGE_ERROR_TEXT, plannedMinutesOf, validateTimeRange } from '../../domain/calculations/time';
+import { TIME_RANGE_ERROR_TEXT, changeRange, plannedMinutesOf, validateTimeRange } from '../../domain/calculations/time';
+import { BreakStartRow } from './BreakStartRow';
 import { BREAK_VALUES, NumberPickerSheet, TimePickerSheet } from '../../components/ui/PickerSheets';
 import { Divider, ValueRow } from '../../components/ui/ValueRow';
 import { Switch } from '../../components/ui/Switch';
@@ -19,6 +20,10 @@ type Picker = 'start' | 'end' | 'break' | null;
 /** Standardarbeitszeit eines Wochentags – genutzt im Onboarding und in den Einstellungen. */
 export function ScheduleDayFields({ question, value, onChange }: ScheduleDayFieldsProps) {
   const [picker, setPicker] = useState<Picker>(null);
+  // Erst ein selbst gewählter Pausenbeginn bleibt bei geänderten Zeiten fest; sonst wird er passend verschoben.
+  const [breakPinned, setBreakPinned] = useState(false);
+  const change = (patch: Partial<WorkScheduleDay>) =>
+    onChange({ isWorkDay: value.isWorkDay, ...changeRange(value, patch, breakPinned) });
   const error = value.isWorkDay ? validateTimeRange(value) : null;
   const close = () => setPicker(null);
 
@@ -42,9 +47,18 @@ export function ScheduleDayFields({ question, value, onChange }: ScheduleDayFiel
             <Divider />
             <ValueRow label="Beginn" value={value.start} onClick={() => setPicker('start')} />
             <Divider />
-            <ValueRow label="Ende" value={value.end} onClick={() => setPicker('end')} invalid={!!error} />
+            <ValueRow label="Ende" value={value.end} onClick={() => setPicker('end')} invalid={error === 'end-before-start' || error === 'break-too-long'} />
             <Divider />
             <ValueRow label="Pause" value={formatBreak(value.breakMinutes)} onClick={() => setPicker('break')} />
+            <BreakStartRow
+              breakMinutes={value.breakMinutes}
+              breakStart={value.breakStart}
+              invalid={error === 'break-outside'}
+              onChange={(breakStart) => {
+                setBreakPinned(true);
+                onChange({ ...value, breakStart });
+              }}
+            />
             <Divider />
             <ValueRow label="Sollzeit" value={formatDuration(plannedMinutesOf(value))} emphasis />
             {error && <p className="pb-2 text-[15px] text-danger">{TIME_RANGE_ERROR_TEXT[error]}</p>}
@@ -67,14 +81,14 @@ export function ScheduleDayFields({ question, value, onChange }: ScheduleDayFiel
         open={picker === 'start'}
         title="Beginn"
         value={value.start}
-        onChange={(start) => onChange({ ...value, start })}
+        onChange={(start) => change({ start })}
         onClose={close}
       />
       <TimePickerSheet
         open={picker === 'end'}
         title="Ende"
         value={value.end}
-        onChange={(end) => onChange({ ...value, end })}
+        onChange={(end) => change({ end })}
         onClose={close}
       />
       <NumberPickerSheet
@@ -83,7 +97,7 @@ export function ScheduleDayFields({ question, value, onChange }: ScheduleDayFiel
         value={value.breakMinutes}
         values={BREAK_VALUES}
         format={formatBreak}
-        onChange={(breakMinutes) => onChange({ ...value, breakMinutes })}
+        onChange={(breakMinutes) => change({ breakMinutes })}
         onClose={close}
       />
     </div>

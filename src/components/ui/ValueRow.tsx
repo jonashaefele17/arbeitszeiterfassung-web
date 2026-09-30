@@ -19,9 +19,9 @@ export function ValueRow({ label, value, onClick, emphasis = false, invalid = fa
     <>
       <span className="text-[17px] text-ink-2">{label}</span>
       <span
-        className={`tabular shrink-0 whitespace-nowrap text-[17px] ${emphasis ? 'font-semibold text-ink' : 'text-ink'} ${
-          onClick ? 'rounded-lg bg-fill px-3 py-1.5 font-medium' : ''
-        } ${invalid ? 'text-danger' : ''}`}
+        className={`tabular shrink-0 whitespace-nowrap text-[17px] ${emphasis ? 'font-semibold' : ''} ${
+          invalid ? 'text-danger' : 'text-ink'
+        } ${onClick ? `rounded-lg px-3 py-1.5 font-medium ${invalid ? 'bg-danger/10' : 'bg-fill'}` : ''}`}
       >
         {value}
       </span>

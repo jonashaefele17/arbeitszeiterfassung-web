@@ -5,6 +5,8 @@ export interface WorkScheduleDay {
   start: TimeString;
   end: TimeString;
   breakMinutes: number;
+  /** Üblicher Pausenbeginn (Vorschlag für neue Einträge); fehlt bei älteren Standardwochen. */
+  breakStart?: TimeString;
 }
 
 /** Standardarbeitswoche. Samstag und Sonntag werden nicht unterstützt. */
@@ -47,6 +49,8 @@ export interface WorkDay {
   start: TimeString;
   end: TimeString;
   breakMinutes: number;
+  /** Beginn der Pause (nur bei Pause > 0); fehlt bei älteren Einträgen. */
+  breakStart?: TimeString;
   /** Sollzeit zum Zeitpunkt der Erfassung. */
   plannedMinutes: number;
 }

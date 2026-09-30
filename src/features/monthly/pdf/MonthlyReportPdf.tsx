@@ -2,7 +2,8 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { BalanceSnapshot } from '../../../domain/calculations/summary';
 import type { MonthlySummary, ResolvedDay, UserProfile } from '../../../domain/models';
 import { formatMonthYear, formatShortDate, formatWeekdayShortDate, type YearMonth } from '../../../utils/date';
-import { formatBalance, formatBreak, formatDayCount, formatDuration } from '../../../utils/format';
+import { formatBalance, formatDayCount, formatDuration } from '../../../utils/format';
+import { formatBreakSpan } from '../../../domain/calculations/time';
 
 const ACCENT = '#980C3B';
 const INK = '#111114';
@@ -31,13 +32,13 @@ const s = StyleSheet.create({
 });
 
 const COLUMNS = [
-  { key: 'date', label: 'Datum', width: '15%' },
-  { key: 'status', label: 'Status', width: '19%' },
-  { key: 'start', label: 'Beginn', width: '9%' },
-  { key: 'end', label: 'Ende', width: '9%' },
-  { key: 'break', label: 'Pause', width: '9%' },
+  { key: 'date', label: 'Datum', width: '14%' },
+  { key: 'status', label: 'Status', width: '18%' },
+  { key: 'start', label: 'Beginn', width: '8%' },
+  { key: 'end', label: 'Ende', width: '8%' },
+  { key: 'break', label: 'Pause', width: '14%' },
   { key: 'actual', label: 'Arbeitszeit', width: '13%' },
-  { key: 'planned', label: 'Sollzeit', width: '12%' },
+  { key: 'planned', label: 'Sollzeit', width: '11%' },
   { key: 'diff', label: 'Differenz', width: '14%' },
 ] as const;
 
@@ -73,7 +74,7 @@ function toCells(day: ResolvedDay, trackingStartDate: string): Cells {
     status: statusText(day),
     start: w?.start ?? '',
     end: w?.end ?? '',
-    break: w ? formatBreak(w.breakMinutes) : '',
+    break: w ? formatBreakSpan(w) : '',
     actual: showTimes && (day.status === 'work' || (day.status !== 'empty' && day.plannedMinutes > 0))
       ? formatDuration(day.actualMinutes)
       : '',
