@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 const ITEM_HEIGHT = 44;
 const VISIBLE = 5;
@@ -14,16 +14,29 @@ interface WheelColumnProps<T extends string | number> {
 }
 
 /**
+ * Ergänzt einen Wert, der nicht im Raster liegt (z. B. 8:07 bei 5-min-Schritten), an passender Stelle.
+ */
+export function withValue<T extends string | number>(values: readonly T[], value: T): readonly T[] {
+  if (values.includes(value)) return values;
+  if (typeof value !== 'number') return [...values, value];
+  const index = values.findIndex((v) => (v as number) > value);
+  return index === -1 ? [...values, value] : [...values.slice(0, index), value, ...values.slice(index)];
+}
+
+/**
  * Einzelne Scroll-Walze mit Snapping. Unterstützt Touch, Mausrad und Pfeiltasten.
+ * Ein Startwert außerhalb des Rasters bleibt wählbar, solange die Walze offen ist.
  */
 export function WheelColumn<T extends string | number>({
-  values,
+  values: raster,
   value,
   onChange,
   format = String,
   label,
   className = '',
 }: WheelColumnProps<T>) {
+  const [initial] = useState(value);
+  const values = useMemo(() => withValue(raster, initial), [raster, initial]);
   const ref = useRef<HTMLDivElement>(null);
   const settleTimer = useRef<number | undefined>(undefined);
   const selectedIndex = Math.max(0, values.indexOf(value));

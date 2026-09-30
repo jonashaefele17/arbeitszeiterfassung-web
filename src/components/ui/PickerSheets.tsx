@@ -6,6 +6,8 @@ import { Button } from './Button';
 import { WheelColumn, WheelFrame, range } from './WheelPicker';
 
 const HOURS = range(0, 23);
+/** Uhrzeiten und Pausen in 5-min-Schritten; der Saldo bleibt minutengenau. */
+const MINUTE_STEPS = range(0, 55, 5);
 const MINUTES = range(0, 59);
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -57,7 +59,7 @@ export function TimePickerSheet({ open, title, value, onChange, onClose }: TimeP
         <span className="text-[22px] font-semibold">:</span>
         <WheelColumn
           label="Minute"
-          values={MINUTES}
+          values={MINUTE_STEPS}
           value={minute}
           format={pad}
           onChange={(m) => onChange(minutesToTime(hour * 60 + m))}
@@ -88,7 +90,7 @@ export function NumberPickerSheet({ open, title, value, values, format, onChange
   );
 }
 
-export const BREAK_VALUES = range(0, 180);
+export const BREAK_VALUES = range(0, 180, 5);
 
 interface BalancePickerSheetProps {
   open: boolean;
