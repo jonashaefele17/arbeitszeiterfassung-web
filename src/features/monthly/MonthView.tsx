@@ -15,6 +15,7 @@ import { runSafely } from '../../utils/errors';
 import { MonthCalendar } from './MonthCalendar';
 import { MonthStats } from './MonthStats';
 import { SyncBadge } from '../sync/SyncBadge';
+import type { PdfVariant } from './pdf/exportMonthlyPdf';
 
 export function MonthView() {
   const { ctx, profile } = useReadyData();
@@ -22,7 +23,7 @@ export function MonthView() {
   const setMonth = useUiStore((s) => s.setMonth);
   const goToToday = useUiStore((s) => s.goToToday);
   const [direction, setDirection] = useState<1 | -1>(1);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<PdfVariant | null>(null);
 
   const todayMonth = yearMonthOf(ctx.today);
   const days = useMemo(() => resolveMonth(month, ctx), [month, ctx]);
@@ -39,13 +40,13 @@ export function MonthView() {
   };
   const swipe = useHorizontalSwipe(go);
 
-  const exportPdf = async () => {
-    setExporting(true);
+  const exportPdf = async (variant: PdfVariant) => {
+    setExporting(variant);
     await runSafely(async () => {
       const { exportMonthlyPdf } = await import('./pdf/exportMonthlyPdf');
-      await exportMonthlyPdf({ month, days, summary, balance, profile, ctx });
+      await exportMonthlyPdf(variant, { month, days, summary, balance, profile, ctx });
     }, 'Das PDF konnte nicht erstellt werden.');
-    setExporting(false);
+    setExporting(null);
   };
 
   return (
@@ -99,10 +100,20 @@ export function MonthView() {
       </AnimatedHeight>
       <MonthStats summary={summary} balance={balance} vacation={vacation} />
 
-      <div className="pt-6">
-        <Button block variant="secondary" onClick={exportPdf} disabled={exporting} className="gap-2">
+      <div className="space-y-3 pt-6">
+        <Button block onClick={() => exportPdf('timesheet')} disabled={exporting !== null} className="gap-2">
           <ShareIcon />
-          {exporting ? 'PDF wird erstellt …' : 'PDF exportieren'}
+          {exporting === 'timesheet' ? 'PDF wird erstellt …' : 'PDF exportieren'}
+        </Button>
+        <Button
+          block
+          variant="secondary"
+          onClick={() => exportPdf('report')}
+          disabled={exporting !== null}
+          className="gap-2"
+        >
+          <ShareIcon />
+          {exporting === 'report' ? 'PDF wird erstellt …' : 'Detaillierten Nachweis exportieren'}
         </Button>
       </div>
     </div>
