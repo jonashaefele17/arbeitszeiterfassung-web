@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { ResolvedDay, UserProfile } from '../../../domain/models';
-import { formatMonth, formatMonthYear, type YearMonth } from '../../../utils/date';
+import { formatMonthYear, type YearMonth } from '../../../utils/date';
 import { buildTimesheet, splitHours, type SplitHours, type TimesheetRow } from './timesheetRows';
 
 const INK = '#111114';
@@ -90,11 +90,6 @@ export interface TimesheetProps {
   profile: UserProfile;
 }
 
-/** „Juni ’26“ */
-function formatFormMonth(month: YearMonth): string {
-  return `${formatMonth(month)} ’${String(month.year).slice(2)}`;
-}
-
 /** Formular „Arbeitsaufschreibungen Minijob und Teilzeit“ nach der Papiervorlage. */
 export function TimesheetPdf({ month, days, profile }: TimesheetProps) {
   const fullName = `${profile.firstName} ${profile.lastName}`;
@@ -110,7 +105,7 @@ export function TimesheetPdf({ month, days, profile }: TimesheetProps) {
         <Text style={s.title}>Arbeitsaufschreibungen Minijob und Teilzeit</Text>
         <View style={s.meta}>
           <Text style={s.metaLabel}>Monat:</Text>
-          <Text>{formatFormMonth(month)}</Text>
+          <Text>{formatMonthYear(month)}</Text>
         </View>
         <View style={s.meta}>
           <Text style={s.metaLabel}>Name:</Text>
