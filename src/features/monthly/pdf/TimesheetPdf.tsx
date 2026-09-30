@@ -17,7 +17,7 @@ const s = StyleSheet.create({
   title: { fontSize: 16, fontFamily: 'Helvetica-Bold' },
   meta: { flexDirection: 'row', marginTop: 18, fontSize: 13 },
   metaLabel: { fontFamily: 'Helvetica-Bold', width: 62 },
-  table: { marginTop: 28 },
+  table: { marginTop: 28, borderTopWidth: 0.5, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: RULE },
   row: { flexDirection: 'row', minHeight: 22, borderBottomWidth: 0.5, borderBottomColor: RULE },
   head: { fontFamily: 'Helvetica-Bold' },
   cell: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 3, flexDirection: 'row', alignItems: 'flex-end' },
